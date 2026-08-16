@@ -220,13 +220,15 @@
     </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
 <script>
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTjA9jPr8jZgFrGoicY7rwUhLAHl-cTdLDsTNI5D02m9P6nPjDVEFnNwCmcWGDG5epd_ejuZFcaB4os/pub?output=csv';
     let datosGlobales = [];
     let horarioProvisional = [];
     
-    // Contraseña de administrador establecida
-    const CLAVE_ADMIN = "38243aca00aec5e84cbe3e20f689cfe3";
+    // Hash MD5 correspondiente a "adminlc2026"
+    const HASH_ADMIN = "908b88dbb660c1d198bb6242eddf7b8d";
 
     async function cargarDatos() {
         try {
@@ -351,7 +353,9 @@
     function pedirClaveAdmin() {
         let clave = prompt("Ingresa la contraseña de administrador:");
         if (clave !== null) {
-            if (clave === CLAVE_ADMIN) {
+            // Encripta la entrada recibida en MD5 y la compara con la clave guardada
+            let hashIngresado = CryptoJS.MD5(clave).toString();
+            if (hashIngresado === HASH_ADMIN) {
                 document.getElementById('adminModal').style.display = 'flex';
                 cambiarModoAdmin('crear');
                 cargarAdminGestorTabla();
@@ -416,23 +420,26 @@
     function cargarMateriaParaEditar(index) {
         let mat = datosGlobales[index];
         document.getElementById('adm-index').value = index;
-        document.getElementById('adm-codigo').value = mat[0] || '';
-        document.getElementById('adm-nombre').value = mat[1] || '';
-        document.getElementById('adm-grupo').value = mat[2] || '';
-        document.getElementById('adm-dia').value = mat[3] || 'Lunes';
-        document.getElementById('adm-inicio').value = mat[4] || '';
-        document.getElementById('adm-fin').value = mat[5] || '';
-        document.getElementById('adm-salon').value = mat[6] || '';
-        document.getElementById('adm-docente').value = mat[7] || '';
+        document.getElementById('adm-semestre').value = mat[0] || '1'; // Se asigna el semestre al modal
+        document.getElementById('adm-codigo').value = mat[1] || '';
+        document.getElementById('adm-nombre').value = mat[2] || '';
+        document.getElementById('adm-grupo').value = mat[3] || '';
+        document.getElementById('adm-dia').value = mat[4] || 'Lunes';
+        document.getElementById('adm-inicio').value = mat[5] || '';
+        document.getElementById('adm-fin').value = mat[6] || '';
+        document.getElementById('adm-salon').value = mat[7] || '';
+        document.getElementById('adm-docente').value = mat[8] || '';
         
-        document.getElementById('admin-form-titulo').innerText = `Editando: ${mat[1]} (G${mat[2]})`;
+        document.getElementById('admin-form-titulo').innerText = `Editando: ${mat[2]} (G${mat[3]})`;
     }
 
     function guardarAsignaturaAdmin(event) {
         event.preventDefault();
         let index = document.getElementById('adm-index').value;
 
+        // Se captura el campo 'adm-semestre' al inicio de la fila
         const nuevaFila = [
+            document.getElementById('adm-semestre').value,
             document.getElementById('adm-codigo').value,
             document.getElementById('adm-nombre').value,
             document.getElementById('adm-grupo').value,
@@ -461,13 +468,13 @@
     }
 
     function eliminarMateriaAdmin(index) {
-        if(confirm(`¿Estás segura de eliminar la asignatura ${datosGlobales[index][1]} (Grupo ${datosGlobales[index][2]})?`)) {
+        if(confirm(`¿Estás segura de eliminar la asignatura ${datosGlobales[index][2]} (Grupo ${datosGlobales[index][3]})?`)) {
             let matEliminada = datosGlobales[index];
             datosGlobales.splice(index, 1);
             renderizarTabla(datosGlobales);
             cargarAdminGestorTabla();
             
-            horarioProvisional = horarioProvisional.filter(item => !(item[0] === matEliminada[0] && item[2] === matEliminada[2]));
+            horarioProvisional = horarioProvisional.filter(item => !(item[1] === matEliminada[1] && item[3] === matEliminada[3]));
             actualizarGridHorario();
             
             alert("Asignatura eliminada correctamente.");
@@ -482,7 +489,6 @@
 
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF('landscape');
-
         doc.setFont("helvetica", "bold");
         doc.setFontSize(16);
         doc.setTextColor(11, 60, 93);
@@ -516,13 +522,13 @@
         let diasKeys = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
         diasKeys.forEach((dia, index) => {
             let matDelDia = horarioProvisional.filter(m => {
-                let dNorm = m[3].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                let dNorm = m[4].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
                 return dNorm.includes(dia);
             });
 
             let posY = y + 5;
             matDelDia.forEach(m => {
-                let texto = `${m[1]} (G${m[2]})\n${m[4]}-${m[5]}\nSalón: ${m[6]}`;
+                let texto = `${m[2]} (G${m[3]})\n${m[5]}-${m[6]}\nSalón: ${m[7]}`;
                 doc.setFontSize(7);
                 doc.text(texto, startX + (index * colWidth) + 2, posY, { maxWidth: colWidth - 4 });
                 posY += 12;
@@ -533,7 +539,8 @@
     }
 
     cargarDatos();
-</script>
+            </script>
+    
 </body>
 
 <style>
