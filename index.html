@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Horarios - Lic. Humanidades</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        :root { --ua-blue: #0b3c5d; --ua-orange: #d96b27; }
+        body { font-family: Arial; }
+        header { background: var(--ua-blue); color: white; padding: 20px; display: flex; align-items: center; gap: 20px; }
+        .logos { display: flex; gap: 10px; }
+        .logos img { height: 60px; }
+        #buscador { width: 90%; padding: 10px; margin: 20px auto; display: block; border: 2px solid var(--ua-blue); border-radius: 5px; }
+        table { width: 95%; margin: 20px auto; border-collapse: collapse; }
+        th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
+        th { background: var(--ua-orange); color: white; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logos">
+        <img src="UA.png" alt="UA">
+        <img src="LC.png" alt="Programa">
+    </div>
+    <h1>Armador de Horario - Estudiantes</h1>
+</header>
+
+<input type="text" id="buscador" placeholder="Buscar materia por nombre o código..." onkeyup="filtrar()">
+
+<div id="tabla-materias"></div>
+
+<script>
+    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTjA9jPr8jZgFrGoicY7rwUhLAHl-cTdLDsTNI5D02m9P6nPjDVEFnNwCmcWGDG5epd_ejuZFcaB4os/pub?output=csv';
+    let datosGlobales = [];
+
+    async function cargarDatos() {
+        const response = await fetch(CSV_URL);
+        const text = await response.text();
+        const filas = text.split('\n').map(fila => fila.split(','));
+        datosGlobales = filas;
+        renderizarTabla(filas);
+    }
+
+    function renderizarTabla(datos) {
+        let html = '<table><thead><tr>';
+        // Crear cabeceras
+        datos[0].forEach(col => html += `<th>${col}</th>`);
+        html += '</tr></thead><tbody>';
+        // Crear filas
+        for(let i = 1; i < datos.length; i++) {
+            html += '<tr>';
+            datos[i].forEach(celda => html += `<td>${celda}</td>`);
+            html += '</tr>';
+        }
+        html += '</tbody></table>';
+        document.getElementById('tabla-materias').innerHTML = html;
+    }
+
+    function filtrar() {
+        const busqueda = document.getElementById('buscador').value.toLowerCase();
+        const filasFiltradas = datosGlobales.filter((fila, index) => {
+            if(index === 0) return true; // Mantener cabecera
+            return fila.some(celda => celda.toLowerCase().includes(busqueda));
+        });
+        renderizarTabla(filasFiltradas);
+    }
+
+    cargarDatos();
+</script>
+</body>
+</html>
