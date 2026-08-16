@@ -39,10 +39,14 @@
         .seccion-provisional { margin-top: 30px; border-top: 3px solid var(--ua-blue); padding-top: 15px; }
         #alerta { color: #d9534f; font-weight: bold; margin-bottom: 15px; min-height: 20px; text-align: center; font-size: 13px; }
         
-        .tabla-horario-grid { width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 600px; }
+        .tabla-horario-grid { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .tabla-horario-grid th, .tabla-horario-grid td { border: 1px solid #b0c4de; padding: 6px; text-align: center; vertical-align: top; width: 16.66%; font-size: 11px; }
         .tabla-horario-grid th { background: var(--ua-blue); color: white; }
-        .celda-materia { background: #eef2f5; border-left: 4px solid var(--ua-orange); padding: 5px; margin-bottom: 4px; border-radius: 3px; text-align: left; }
+        .celda-materia { background: #eef2f5; border-left: 4px solid var(--ua-orange); padding: 7px; margin-bottom: 5px; border-radius: 3px; text-align: left; line-height: 1.35; }
+        .sin-horario { margin-top: 15px; padding: 12px; border: 1px solid #ddd; border-radius: 6px; background: #fafafa; }
+        .sin-horario h3 { margin: 0 0 10px; color: var(--ua-blue); font-size: 13px; }
+        .materia-sin-horario { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 10px; background: white; border: 1px solid #ddd; border-left: 4px solid #999; border-radius: 4px; margin-bottom: 7px; font-size: 12px; }
+        .materia-sin-horario-info { flex: 1; min-width: 0; text-align: left; }
         
         .btn-pdf { background: var(--ua-orange); color: white; border: none; padding: 12px 20px; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 5px; display: block; margin: 20px auto 0 auto; width: 100%; max-width: 300px; text-align: center; }
         .btn-pdf:hover { background: #b8541f; }
@@ -239,6 +243,11 @@
                     </tr>
                 </tbody>
             </table>
+        </div>
+
+        <div id="sin-horario" class="sin-horario" style="display:none;">
+            <h3>Materias agregadas sin horario asignado</h3>
+            <div id="lista-sin-horario"></div>
         </div>
 
         <button class="btn-pdf" onclick="descargarPDF()">Descargar mi Horario en PDF</button>
@@ -444,7 +453,7 @@
 
             const cumpleSemestre =
                 !semestreFiltro ||
-                (filaOriginal[8] || '').trim().toLowerCase() === semestreFiltro;
+                normalizarSemestre(filaOriginal[8]) === normalizarSemestre(semestreFiltro);
 
             const cumpleBusqueda =
                 !busqueda ||
@@ -470,30 +479,58 @@
 
     function agregarAlHorario(indiceFila) {
         const materiaSeleccionada = datosGlobales[indiceFila];
-        const codigoNuevo = (materiaSeleccionada[0] || "").trim();
-        const diaNuevo = (materiaSeleccionada[3] || "").trim();
-        const inicioNuevo = (materiaSeleccionada[4] || "").trim();
-        const finNuevo = (materiaSeleccionada[5] || "").trim();
+        if (!materiaSeleccionada) return;
+
+        const codigoNuevo = String(materiaSeleccionada[0] || "").trim();
+        const grupoNuevo = String(materiaSeleccionada[2] || "").trim();
+        const diaNuevo = String(materiaSeleccionada[3] || "").trim();
+        const inicioNuevo = String(materiaSeleccionada[4] || "").trim();
+        const finNuevo = String(materiaSeleccionada[5] || "").trim();
 
         document.getElementById('alerta').innerText = "";
 
-        // RESTRICCIÓN: Evitar registrar la misma materia (código) más de una vez en el horario
-        if (horarioProvisional.some(item => item[0].trim() === codigoNuevo)) {
-            document.getElementById('alerta').innerText = `⚠️ Ya tienes registrada la asignatura con código ${codigoNuevo} en tu horario. No puedes agregar la misma materia dos veces.`;
+        // Se considera duplicada la misma asignatura DEL MISMO GRUPO.
+        // Diferentes grupos pueden agregarse aunque compartan código.
+        if (horarioProvisional.some(item =>
+            String(item[0] || "").trim() === codigoNuevo &&
+            String(item[2] || "").trim() === grupoNuevo
+        )) {
+            document.getElementById('alerta').innerText =
+                `⚠️ Ya tienes agregada ${materiaSeleccionada[1] || 'esta asignatura'} (Grupo ${grupoNuevo || 'N/A'}).`;
             return;
         }
 
-        for (let item of horarioProvisional) {
-            if (item[3].toLowerCase() === diaNuevo.toLowerCase()) {
-                if (inicioNuevo < item[5] && finNuevo > item[4]) {
-                    document.getElementById('alerta').innerText = `⚠️ ¡Cruce de horario! Se solapa con ${item[1]} (${item[3]} de ${item[4]} a ${item[5]})`;
-                    return;
+        // Los datos de horario pueden estar vacíos. Eso NO es un error:
+        // la materia se agrega y aparecerá en "Materias agregadas sin horario asignado".
+        const tieneDia = normalizarDia(diaNuevo) !== "";
+        const tieneHorarioCompleto = tieneDia && inicioNuevo && finNuevo;
+
+        // Solo comprobar cruces cuando realmente existen día, inicio y fin.
+        if (tieneHorarioCompleto) {
+            for (const item of horarioProvisional) {
+                const diaItem = normalizarDia(item[3]);
+                const inicioItem = String(item[4] || "").trim();
+                const finItem = String(item[5] || "").trim();
+
+                if (diaItem === normalizarDia(diaNuevo) && inicioItem && finItem) {
+                    if (inicioNuevo < finItem && finNuevo > inicioItem) {
+                        document.getElementById('alerta').innerText =
+                            `⚠️ ¡Cruce de horario! Se solapa con ${item[1] || 'otra asignatura'} (${item[3] || 'día'} de ${inicioItem} a ${finItem}).`;
+                        return;
+                    }
                 }
             }
         }
 
-        horarioProvisional.push(materiaSeleccionada);
+        horarioProvisional.push([...materiaSeleccionada]);
         actualizarGridHorario();
+
+        // Confirmación discreta: no bloquea ni trata los datos vacíos como error.
+        if (!tieneHorarioCompleto) {
+            document.getElementById('alerta').style.color = '#666';
+            document.getElementById('alerta').innerText =
+                `✓ ${materiaSeleccionada[1] || 'Asignatura'} agregada. Aún no tiene día y/o horario asignado.`;
+        }
     }
 
     function eliminarDelHorario(codigo, grupo) {
@@ -502,53 +539,96 @@
         actualizarGridHorario();
     }
 
+    function normalizarSemestre(valor) {
+        const v = String(valor || '').trim().toLowerCase();
+        const equivalencias = {
+            'i': '1', 'ii': '2', 'iii': '3', 'iv': '4', 'v': '5',
+            'vi': '6', 'vii': '7', 'viii': '8', 'ix': '9', 'x': '10'
+        };
+        return equivalencias[v] || v;
+    }
+
+    function normalizarDia(valor) {
+        return String(valor || "")
+            .trim()
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+    }
+
     function actualizarGridHorario() {
         const diasCols = {
             'lunes': document.getElementById('col-lunes'),
             'martes': document.getElementById('col-martes'),
-            'miércoles': document.getElementById('col-miercoles'),
+            'miercoles': document.getElementById('col-miercoles'),
             'jueves': document.getElementById('col-jueves'),
             'viernes': document.getElementById('col-viernes'),
-            'sábado': document.getElementById('col-sabado')
+            'sabado': document.getElementById('col-sabado')
         };
 
         Object.values(diasCols).forEach(col => col.innerHTML = '');
+
         horarioProvisional.sort((a, b) =>
             String(a[4] || '').localeCompare(String(b[4] || ''))
         );
 
+        const sinHorario = [];
+
         horarioProvisional.forEach(materia => {
-            const diaNorm = String(materia[3] || '')
-                .toLowerCase()
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "");
+            const diaKey = normalizarDia(materia[3]);
+            const tieneDia = !!diasCols[diaKey];
+            const tieneHorario = String(materia[4] || '').trim() && String(materia[5] || '').trim();
 
-            let diaKey = '';
-            if (diaNorm.includes('lunes')) diaKey = 'lunes';
-            else if (diaNorm.includes('martes')) diaKey = 'martes';
-            else if (diaNorm.includes('miercoles')) diaKey = 'miércoles';
-            else if (diaNorm.includes('jueves')) diaKey = 'jueves';
-            else if (diaNorm.includes('viernes')) diaKey = 'viernes';
-            else if (diaNorm.includes('sabado')) diaKey = 'sábado';
+            const codigo = String(materia[0] || '').replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+            const grupo = String(materia[2] || '').replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 
-            if (diaKey && diasCols[diaKey]) {
-                const codigo = String(materia[0] || '').replace(/'/g, "\\'");
-                const grupo = String(materia[2] || '').replace(/'/g, "\\'");
+            const contenido = `
+                <div class="celda-materia">
+                    <strong>${escaparHTML(materia[1] || 'Sin nombre')}</strong><br>
+                    Cód: ${escaparHTML(materia[0] || 'N/A')} | G: ${escaparHTML(materia[2] || 'N/A')}<br>
+                    Semestre: ${escaparHTML(materia[8] || 'N/A')}<br>
+                    Día: ${escaparHTML(materia[3] || 'No asignado')}<br>
+                    Hora: ${escaparHTML(materia[4] || 'No asignada')} - ${escaparHTML(materia[5] || 'No asignada')}<br>
+                    Salón: ${escaparHTML(materia[6] || 'No asignado')}<br>
+                    Docente: ${escaparHTML(materia[7] || 'No asignado')}<br>
+                    <button class="btn-eliminar" onclick="eliminarDelHorario('${codigo}', '${grupo}')">Quitar</button>
+                </div>
+            `;
 
-                diasCols[diaKey].innerHTML += `
-                    <div class="celda-materia">
-                        <strong>${escaparHTML(materia[1])}</strong><br>
-                        Cód: ${escaparHTML(materia[0])} | G: ${escaparHTML(materia[2])}<br>
-                        Cat/Sem: ${escaparHTML(materia[8] || 'N/A')}<br>
-                        Hora: ${escaparHTML(materia[4])} - ${escaparHTML(materia[5])}<br>
-                        Salón: ${escaparHTML(materia[6])}<br>
-                        Docente: ${escaparHTML(materia[7])}<br>
-                        <button class="btn-eliminar" onclick="eliminarDelHorario('${codigo}', '${grupo}')">Quitar</button>
-                    </div>
-                `;
+            if (tieneDia && tieneHorario) {
+                diasCols[diaKey].innerHTML += contenido;
+            } else {
+                sinHorario.push({ materia, codigo, grupo });
             }
         });
+
+        const contenedorSinHorario = document.getElementById('sin-horario');
+        const listaSinHorario = document.getElementById('lista-sin-horario');
+
+        if (sinHorario.length) {
+            listaSinHorario.innerHTML = sinHorario.map(({materia, codigo, grupo}) => `
+                <div class="materia-sin-horario">
+                    <div class="materia-sin-horario-info">
+                        <strong>${escaparHTML(materia[1] || 'Sin nombre')}</strong><br>
+                        Código: ${escaparHTML(materia[0] || 'N/A')}
+                        &nbsp;|&nbsp; Grupo: ${escaparHTML(materia[2] || 'N/A')}
+                        &nbsp;|&nbsp; Semestre: ${escaparHTML(materia[8] || 'N/A')}<br>
+                        <small>
+                            Día: ${escaparHTML(materia[3] || 'No asignado')}
+                            &nbsp;|&nbsp;
+                            Hora: ${escaparHTML(materia[4] || 'No asignada')} - ${escaparHTML(materia[5] || 'No asignada')}
+                        </small>
+                    </div>
+                    <button class="btn-eliminar" onclick="eliminarDelHorario('${codigo}', '${grupo}')">Quitar</button>
+                </div>
+            `).join('');
+            contenedorSinHorario.style.display = 'block';
+        } else {
+            listaSinHorario.innerHTML = '';
+            contenedorSinHorario.style.display = 'none';
+        }
     }
+
 
     function pedirClaveAdmin() {
         let clave = prompt("Ingresa la contraseña de administrador:");
@@ -692,6 +772,13 @@
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF('landscape', 'mm', 'a4');
 
+        const startX = 10;
+        const startY = 29;
+        const pageWidth = 277;
+        const colWidth = pageWidth / 6;
+        const headerHeight = 8;
+        const rowHeight = 145;
+
         doc.setFont("helvetica", "bold");
         doc.setFontSize(15);
         doc.setTextColor(11, 60, 93);
@@ -702,16 +789,9 @@
         doc.setTextColor(80);
         doc.text("Mi Horario Provisional - Consolidado Semanal", 14, 22);
 
-        const startX = 10;
-        const startY = 29;
-        const pageWidth = 277;
-        const colWidth = pageWidth / 6;
-        const headerHeight = 8;
-        const rowHeight = 145;
-
         const headers = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+        const diasKeys = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
 
-        // Encabezados
         headers.forEach((h, i) => {
             const x = startX + i * colWidth;
             doc.setFillColor(217, 107, 39);
@@ -722,9 +802,6 @@
             doc.text(h, x + colWidth / 2, startY + 5.5, { align: "center" });
         });
 
-        // Normalización SIN acentos para que coincida con las claves del filtro.
-        const diasKeys = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
-
         diasKeys.forEach((dia, index) => {
             const x = startX + index * colWidth;
             const y = startY + headerHeight;
@@ -732,27 +809,20 @@
             doc.setDrawColor(176, 196, 222);
             doc.rect(x, y, colWidth, rowHeight);
 
-            const matDelDia = horarioProvisional.filter(m => {
-                const dNorm = String(m[3] || "")
-                    .toLowerCase()
-                    .normalize("NFD")
-                    .replace(/[\u0300-\u036f]/g, "");
-                return dNorm.includes(dia);
-            });
+            const matDelDia = horarioProvisional.filter(m =>
+                normalizarDia(m[3]) === dia
+            );
 
             let posY = y + 7;
 
             matDelDia.forEach(m => {
-                if (posY > y + rowHeight - 25) {
-                    // Si un día tiene demasiadas materias, crea una segunda página.
-                    // En la página nueva se vuelve a dibujar una columna completa para ese día.
-                    return;
-                }
+                if (posY > y + rowHeight - 25) return;
 
                 doc.setTextColor(11, 60, 93);
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(7.5);
-                const nombre = doc.splitTextToSize(String(m[1] || ""), colWidth - 5);
+
+                const nombre = doc.splitTextToSize(String(m[1] || "Sin nombre"), colWidth - 5);
                 doc.text(nombre, x + 2.5, posY);
                 posY += nombre.length * 3.5 + 2;
 
@@ -761,11 +831,11 @@
                 doc.setFontSize(6.5);
 
                 const lineas = [
-                    `Codigo: ${m[0] || ''} | Grupo: ${m[2] || ''}`,
+                    `Codigo: ${m[0] || 'N/A'} | Grupo: ${m[2] || 'N/A'}`,
                     `Semestre: ${m[8] || 'N/A'}`,
-                    `Hora: ${m[4] || ''} - ${m[5] || ''}`,
-                    `Salon: ${m[6] || ''}`,
-                    `Docente: ${m[7] || ''}`
+                    `Hora: ${m[4] || 'No asignada'} - ${m[5] || 'No asignada'}`,
+                    `Salon: ${m[6] || 'No asignado'}`,
+                    `Docente: ${m[7] || 'No asignado'}`
                 ];
 
                 lineas.forEach(linea => {
@@ -776,7 +846,59 @@
 
                 posY += 3;
             });
+
+            if (!matDelDia.length) {
+                doc.setTextColor(130);
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(7);
+                doc.text("Sin asignaturas", x + colWidth / 2, y + 10, { align: "center" });
+            }
         });
+
+        // Materias sin día/hora: no se pierden del PDF.
+        const sinHorario = horarioProvisional.filter(m => {
+            const dia = normalizarDia(m[3]);
+            return !diasKeys.includes(dia) || !String(m[4] || '').trim() || !String(m[5] || '').trim();
+        });
+
+        if (sinHorario.length) {
+            doc.addPage();
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(15);
+            doc.setTextColor(11, 60, 93);
+            doc.text("Materias agregadas sin horario asignado", 14, 18);
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+            doc.setTextColor(80);
+            doc.text("Estas asignaturas fueron agregadas correctamente, pero aún no tienen día y/o hora registrados.", 14, 25);
+
+            let y = 35;
+            sinHorario.forEach((m, index) => {
+                if (y > 185) {
+                    doc.addPage();
+                    y = 20;
+                }
+
+                doc.setDrawColor(210, 210, 210);
+                doc.rect(14, y - 5, 250, 28);
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(9);
+                doc.setTextColor(11, 60, 93);
+                const nombre = doc.splitTextToSize(`${index + 1}. ${m[1] || 'Sin nombre'}`, 240);
+                doc.text(nombre, 18, y);
+
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(7.5);
+                doc.setTextColor(0);
+                doc.text(`Codigo: ${m[0] || 'N/A'} | Grupo: ${m[2] || 'N/A'} | Semestre: ${m[8] || 'N/A'}`, 18, y + 7);
+                doc.text(`Dia: ${m[3] || 'No asignado'} | Hora: ${(m[4] || 'No asignada')} - ${(m[5] || 'No asignada')}`, 18, y + 12);
+                doc.text(`Salon: ${m[6] || 'No asignado'} | Docente: ${m[7] || 'No asignado'}`, 18, y + 17);
+
+                y += 34;
+            });
+        }
 
         doc.setFont("helvetica", "normal");
         doc.setFontSize(7);
@@ -784,11 +906,12 @@
         doc.text(
             `Generado el ${new Date().toLocaleDateString('es-CO')}`,
             14,
-            190
+            200
         );
 
         doc.save("Mi_Horario_Ideal.pdf");
     }
+
 
     cargarDatos();
 </script>
