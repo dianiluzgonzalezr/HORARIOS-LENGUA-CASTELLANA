@@ -489,14 +489,18 @@
 
         document.getElementById('alerta').innerText = "";
 
-        // Se considera duplicada la misma asignatura DEL MISMO GRUPO.
-        // Diferentes grupos pueden agregarse aunque compartan código.
-        if (horarioProvisional.some(item =>
-            String(item[0] || "").trim() === codigoNuevo &&
-            String(item[2] || "").trim() === grupoNuevo
-        )) {
+        // Se considera duplicada la misma asignatura (mismo código),
+        // sin importar si el grupo u horario son diferentes: una asignatura
+        // solo puede estar UNA vez en el horario provisional.
+        const yaAgregada = horarioProvisional.find(item =>
+            String(item[0] || "").trim() === codigoNuevo
+        );
+        if (yaAgregada) {
+            const grupoExistente = String(yaAgregada[2] || "").trim();
             document.getElementById('alerta').innerText =
-                `⚠️ Ya tienes agregada ${materiaSeleccionada[1] || 'esta asignatura'} (Grupo ${grupoNuevo || 'N/A'}).`;
+                grupoExistente === grupoNuevo
+                    ? `⚠️ Ya tienes agregada ${materiaSeleccionada[1] || 'esta asignatura'} (Grupo ${grupoNuevo || 'N/A'}).`
+                    : `⚠️ Ya tienes agregada ${materiaSeleccionada[1] || 'esta asignatura'} en el Grupo ${grupoExistente || 'N/A'}. No puedes agregar el mismo código en otro grupo u horario.`;
             return;
         }
 
@@ -534,7 +538,9 @@
     }
 
     function eliminarDelHorario(codigo, grupo) {
-        horarioProvisional = horarioProvisional.filter(item => !(item[0] === codigo && item[2] === grupo));
+        // Un código solo puede estar una vez en el horario provisional,
+        // así que basta con filtrar por código para eliminarlo correctamente.
+        horarioProvisional = horarioProvisional.filter(item => String(item[0] || "").trim() !== String(codigo || "").trim());
         document.getElementById('alerta').innerText = "";
         actualizarGridHorario();
     }
