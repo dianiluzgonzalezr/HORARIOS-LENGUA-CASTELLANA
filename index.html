@@ -6,14 +6,29 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root { --ua-blue: #0b3c5d; --ua-orange: #d96b27; }
-        body { font-family: Arial; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f7f9; }
         header { background: var(--ua-blue); color: white; padding: 20px; display: flex; align-items: center; gap: 20px; }
         .logos { display: flex; gap: 10px; }
         .logos img { height: 60px; }
-        #buscador { width: 90%; padding: 10px; margin: 20px auto; display: block; border: 2px solid var(--ua-blue); border-radius: 5px; }
-        table { width: 95%; margin: 20px auto; border-collapse: collapse; }
-        th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
+        .container { max-width: 1300px; margin: 20px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        #buscador { width: 100%; padding: 12px; margin-bottom: 20px; box-sizing: border-box; border: 2px solid var(--ua-blue); border-radius: 5px; font-size: 16px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
         th { background: var(--ua-orange); color: white; }
+        tr:nth-child(even) { background: #f2f2f2; }
+        .btn-agregar { background: var(--ua-blue); color: white; border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        .btn-agregar:hover { background: var(--ua-orange); }
+        .btn-eliminar { background: #d9534f; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 11px; margin-top: 5px; }
+        .seccion-provisional { margin-top: 40px; border-top: 3px solid var(--ua-blue); padding-top: 20px; }
+        #alerta { color: #d9534f; font-weight: bold; margin-bottom: 15px; min-height: 20px; text-align: center; }
+        
+        .tabla-horario-grid { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .tabla-horario-grid th, .tabla-horario-grid td { border: 1px solid #b0c4de; padding: 8px; text-align: center; vertical-align: top; width: 14.28%; font-size: 12px; }
+        .tabla-horario-grid th { background: var(--ua-blue); color: white; }
+        .celda-materia { background: #eef2f5; border-left: 4px solid var(--ua-orange); padding: 6px; margin-bottom: 6px; border-radius: 3px; text-align: left; }
+        
+        .btn-pdf { background: var(--ua-orange); color: white; border: none; padding: 12px 20px; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 5px; display: block; margin: 30px auto 0 auto; }
+        .btn-pdf:hover { background: #b8541f; }
     </style>
 </head>
 <body>
@@ -23,34 +38,88 @@
         <img src="UA.png" alt="UA">
         <img src="LC.png" alt="Programa">
     </div>
-    <h1>Armador de Horario - Estudiantes</h1>
+    <h1>Horarios - Estudiantes</h1>
 </header>
 
-<input type="text" id="buscador" placeholder="Buscar materia por nombre o código..." onkeyup="filtrar()">
+<div class="container">
+    <h2>1. Buscar Asignaturas del Programa</h2>
+    <input type="text" id="buscador" placeholder="Escribe materia, código, docente o día (ej. Lunes)..." onkeyup="filtrar()">
+    
+    <div style="overflow-x: auto;">
+        <div id="tabla-materias"></div>
+    </div>
 
-<div id="tabla-materias"></div>
+    <div class="seccion-provisional">
+        <h2>2. Mi Horario Semanal Provisional</h2>
+        <div id="alerta"></div>
+        
+        <!-- Cuadrícula Semanal Dinámica -->
+        <div style="overflow-x: auto;">
+            <table class="tabla-horario-grid">
+                <thead>
+                    <tr>
+                        <th>Lunes</th>
+                        <th>Martes</th>
+                        <th>Miércoles</th>
+                        <th>Jueves</th>
+                        <th>Viernes</th>
+                        <th>Sábado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td id="col-lunes"></td>
+                        <td id="col-martes"></td>
+                        <td id="col-miercoles"></td>
+                        <td id="col-jueves"></td>
+                        <td id="col-viernes"></td>
+                        <td id="col-sabado"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <button class="btn-pdf" onclick="descargarPDF()">Descargar mi Horario en PDF</button>
+    </div>
+</div>
 
 <script>
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTjA9jPr8jZgFrGoicY7rwUhLAHl-cTdLDsTNI5D02m9P6nPjDVEFnNwCmcWGDG5epd_ejuZFcaB4os/pub?output=csv';
     let datosGlobales = [];
+    let horarioProvisional = [];
 
     async function cargarDatos() {
-        const response = await fetch(CSV_URL);
-        const text = await response.text();
-        const filas = text.split('\n').map(fila => fila.split(','));
-        datosGlobales = filas;
-        renderizarTabla(filas);
+        try {
+            const response = await fetch(CSV_URL);
+            const text = await response.text();
+            
+            datosGlobales = text.split('\n')
+                .map(fila => fila.split(',').map(celda => celda.trim().replace(/^"|"$/g, '')))
+                .filter(fila => fila.length > 1 && fila[0] !== "");
+
+            renderizarTabla(datosGlobales);
+        } catch (error) {
+            console.error("Error al cargar los datos:", error);
+            document.getElementById('tabla-materias').innerHTML = "<p style='color:red;'>Error al cargar los datos del Google Sheets. Verifica que el enlace CSV esté público.</p>";
+        }
     }
 
     function renderizarTabla(datos) {
+        if (!datos || datos.length === 0) return;
         let html = '<table><thead><tr>';
-        // Crear cabeceras
-        datos[0].forEach(col => html += `<th>${col}</th>`);
-        html += '</tr></thead><tbody>';
-        // Crear filas
+        
+        for(let j = 0; j < datos[0].length; j++) {
+            html += `<th>${datos[0][j]}</th>`;
+        }
+        html += '<th>Acción</th></tr></thead><tbody>';
+
         for(let i = 1; i < datos.length; i++) {
+            if(!datos[i][0]) continue;
             html += '<tr>';
-            datos[i].forEach(celda => html += `<td>${celda}</td>`);
+            for(let j = 0; j < datos[i].length; j++) {
+                html += `<td>${datos[i][j] || ''}</td>`;
+            }
+            html += `<td><button class="btn-agregar" onclick="agregarAlHorario(${i})">Agregar</button></td>`;
             html += '</tr>';
         }
         html += '</tbody></table>';
@@ -60,10 +129,147 @@
     function filtrar() {
         const busqueda = document.getElementById('buscador').value.toLowerCase();
         const filasFiltradas = datosGlobales.filter((fila, index) => {
-            if(index === 0) return true; // Mantener cabecera
+            if(index === 0) return true;
             return fila.some(celda => celda.toLowerCase().includes(busqueda));
         });
-        renderizarTabla(filasFiltradas);
+        
+        let datosConCabecera = [datosGlobales[0], ...filasFiltradas.slice(1)];
+        renderizarTabla(datosConCabecera);
+    }
+
+    function agregarAlHorario(indiceFila) {
+        const materiaSeleccionada = datosGlobales[indiceFila];
+        const diaNuevo = (materiaSeleccionada[3] || "").trim();
+        const inicioNuevo = (materiaSeleccionada[4] || "").trim();
+        const finNuevo = (materiaSeleccionada[5] || "").trim();
+
+        document.getElementById('alerta').innerText = "";
+
+        // Validar cruce de horarios en el mismo día
+        for (let item of horarioProvisional) {
+            if (item[3].toLowerCase() === diaNuevo.toLowerCase()) {
+                if (inicioNuevo < item[5] && finNuevo > item[4]) {
+                    document.getElementById('alerta').innerText = `⚠️ ¡Cruce de horario! Se solapa con ${item[1]} (${item[3]} de ${item[4]} a ${item[5]})`;
+                    return;
+                }
+            }
+        }
+
+        // Evitar duplicar exactamente la misma materia y grupo
+        if (horarioProvisional.some(item => item[0] === materiaSeleccionada[0] && item[2] === materiaSeleccionada[2])) {
+            document.getElementById('alerta').innerText = "⚠️ Ya agregaste este grupo de esta asignatura.";
+            return;
+        }
+
+        horarioProvisional.push(materiaSeleccionada);
+        actualizarGridHorario();
+    }
+
+    function eliminarDelHorario(codigo, grupo) {
+        horarioProvisional = horarioProvisional.filter(item => !(item[0] === codigo && item[2] === grupo));
+        document.getElementById('alerta').innerText = "";
+        actualizarGridHorario();
+    }
+
+    function actualizarGridHorario() {
+        // Limpiar columnas
+        const diasCols = {
+            'lunes': document.getElementById('col-lunes'),
+            'martes': document.getElementById('col-martes'),
+            'miércoles': document.getElementById('col-miercoles'),
+            'jueves': document.getElementById('col-jueves'),
+            'viernes': document.getElementById('col-viernes'),
+            'sábado': document.getElementById('col-sabado')
+        };
+
+        Object.values(diasCols).forEach(col => col.innerHTML = '');
+
+        // Ordenar materias por hora de inicio
+        horarioProvisional.sort((a, b) => a[4].localeCompare(b[4]));
+
+        horarioProvisional.forEach(materia => {
+            const diaNorm = (materia[3] || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            let diaKey = '';
+            
+            if(diaNorm.includes('lunes')) diaKey = 'lunes';
+            else if(diaNorm.includes('martes')) diaKey = 'martes';
+            else if(diaNorm.includes('miercoles')) diaKey = 'miércoles';
+            else if(diaNorm.includes('jueves')) diaKey = 'jueves';
+            else if(diaNorm.includes('viernes')) diaKey = 'viernes';
+            else if(diaNorm.includes('sabado')) diaKey = 'sábado';
+
+            if(diaKey && diasCols[diaKey]) {
+                diasCols[diaKey].innerHTML += `
+                    <div class="celda-materia">
+                        <strong>${materia[1]}</strong><br>
+                        G: ${materia[2]}<br>
+                        🕒 ${materia[4]} - ${materia[5]}<br>
+                        📍 ${materia[6]}<br>
+                        👨‍🏫 ${materia[7]}<br>
+                        <button class="btn-eliminar" onclick="eliminarDelHorario('${materia[0]}', '${materia[2]}')">Quitar</button>
+                    </div>
+                `;
+            }
+        });
+    }
+
+    function descargarPDF() {
+        if (horarioProvisional.length === 0) {
+            alert("Agrega al menos una asignatura a tu horario provisional antes de descargar.");
+            return;
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('landscape');
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        doc.setTextColor(11, 60, 93);
+        doc.text("Licenciatura en Humanidades y Lengua Castellana", 14, 15);
+        
+        doc.setFontSize(12);
+        doc.setTextColor(100);
+        doc.text("Mi Horario Provisional Ideal - Consolidado Semanal", 14, 22);
+
+        let y = 32;
+        doc.setFontSize(9);
+        doc.setTextColor(0);
+
+        let headers = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+        let colWidth = 44;
+        let startX = 14;
+
+        // Cabecera PDF
+        doc.setFillColor(217, 107, 39);
+        doc.setTextColor(255, 255, 255);
+        doc.rect(startX, y, colWidth * 6, 8, "F");
+        
+        headers.forEach((h, i) => {
+            doc.text(h, startX + (i * colWidth) + 12, y + 6);
+        });
+
+        y += 8;
+        doc.setTextColor(0);
+        let rowHeight = 40;
+        doc.rect(startX, y, colWidth * 6, rowHeight);
+
+        let diasKeys = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+        diasKeys.forEach((dia, index) => {
+            let matDelDia = horarioProvisional.filter(m => {
+                let dNorm = m[3].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                return dNorm.includes(dia);
+            });
+
+            let posY = y + 5;
+            matDelDia.forEach(m => {
+                let texto = `${m[1]} (G${m[2]})\n${m[4]}-${m[5]}\nSalón: ${m[6]}`;
+                doc.setFontSize(7);
+                doc.text(texto, startX + (index * colWidth) + 2, posY, { maxWidth: colWidth - 4 });
+                posY += 12;
+            });
+        });
+
+        doc.save("Mi_Horario_Ideal.pdf");
     }
 
     cargarDatos();
