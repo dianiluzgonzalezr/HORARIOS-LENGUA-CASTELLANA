@@ -2,12 +2,13 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Horarios - Lic. Humanidades</title>
+    <title>Armador de Horarios - Lic. Humanidades</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root { --ua-blue: #0b3c5d; --ua-orange: #d96b27; }
         body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f7f9; }
-        header { background: var(--ua-blue); color: white; padding: 20px; display: flex; align-items: center; gap: 20px; }
+        header { background: var(--ua-blue); color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .header-content { display: flex; align-items: center; gap: 20px; }
         .logos { display: flex; gap: 10px; }
         .logos img { height: 60px; }
         .container { max-width: 1300px; margin: 20px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -19,26 +20,40 @@
         .btn-agregar { background: var(--ua-blue); color: white; border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; font-weight: bold; }
         .btn-agregar:hover { background: var(--ua-orange); }
         .btn-eliminar { background: #d9534f; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 11px; margin-top: 5px; }
+        .btn-admin { background: #444; color: white; border: none; padding: 10px 15px; cursor: pointer; border-radius: 5px; font-weight: bold; }
+        .btn-admin:hover { background: #222; }
         .seccion-provisional { margin-top: 40px; border-top: 3px solid var(--ua-blue); padding-top: 20px; }
         #alerta { color: #d9534f; font-weight: bold; margin-bottom: 15px; min-height: 20px; text-align: center; }
         
         .tabla-horario-grid { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        .tabla-horario-grid th, .tabla-horario-grid td { border: 1px solid #b0c4de; padding: 8px; text-align: center; vertical-align: top; width: 14.28%; font-size: 12px; }
+        .tabla-horario-grid th, .tabla-horario-grid td { border: 1px solid #b0c4de; padding: 8px; text-align: center; vertical-align: top; width: 16.66%; font-size: 12px; }
         .tabla-horario-grid th { background: var(--ua-blue); color: white; }
         .celda-materia { background: #eef2f5; border-left: 4px solid var(--ua-orange); padding: 6px; margin-bottom: 6px; border-radius: 3px; text-align: left; }
         
         .btn-pdf { background: var(--ua-orange); color: white; border: none; padding: 12px 20px; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 5px; display: block; margin: 30px auto 0 auto; }
         .btn-pdf:hover { background: #b8541f; }
+
+        /* Estilos del Modal */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 30px; border-radius: 8px; width: 500px; max-width: 90%; box-shadow: 0 4px 10px rgba(0,0,0,0.3); position: relative; }
+        .close { position: absolute; right: 15px; top: 10px; font-size: 24px; cursor: pointer; color: #aaa; }
+        .close:hover { color: #000; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; }
+        .form-group input, .form-group select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
     </style>
 </head>
 <body>
 
 <header>
-    <div class="logos">
-        <img src="UA.png" alt="UA">
-        <img src="LC.png" alt="Programa">
+    <div class="header-content">
+        <div class="logos">
+            <img src="UA.png" alt="UA">
+            <img src="LC.png" alt="Programa">
+        </div>
+        <h1>Armador de Horario - Estudiantes</h1>
     </div>
-    <h1>Horarios - Estudiantes</h1>
+    <button class="btn-admin" onclick="pedirClaveAdmin()">Panel Administrador 🔒</button>
 </header>
 
 <div class="container">
@@ -53,7 +68,6 @@
         <h2>2. Mi Horario Semanal Provisional</h2>
         <div id="alerta"></div>
         
-        <!-- Cuadrícula Semanal Dinámica -->
         <div style="overflow-x: auto;">
             <table class="tabla-horario-grid">
                 <thead>
@@ -83,10 +97,63 @@
     </div>
 </div>
 
+<!-- MODAL DE ADMINISTRADOR -->
+<div id="adminModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="cerrarModal()">&times;</span>
+        <h2>Gestión de Asignaturas (Admin)</h2>
+        <p style="font-size: 12px; color: #666;">Aquí puedes agregar materias directamente al sistema o gestionar la base de datos.</p>
+        
+        <form id="adminForm" onsubmit="guardarMateriaAdmin(event)">
+            <div class="form-group">
+                <label>Código de Asignatura:</label>
+                <input type="text" id="adm-codigo" required>
+            </div>
+            <div class="form-group">
+                <label>Nombre de la Asignatura:</label>
+                <input type="text" id="adm-nombre" required>
+            </div>
+            <div class="form-group">
+                <label>Grupo:</label>
+                <input type="text" id="adm-grupo" required>
+            </div>
+            <div class="form-group">
+                <label>Día:</label>
+                <select id="adm-dia">
+                    <option value="Lunes">Lunes</option>
+                    <option value="Martes">Martes</option>
+                    <option value="Miércoles">Miércoles</option>
+                    <option value="Jueves">Jueves</option>
+                    <option value="Viernes">Viernes</option>
+                    <option value="Sábado">Sábado</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Hora Inicio (HH:MM):</label>
+                <input type="time" id="adm-inicio" required>
+            </div>
+            <div class="form-group">
+                <label>Hora Fin (HH:MM):</label>
+                <input type="time" id="adm-fin" required>
+            </div>
+            <div class="form-group">
+                <label>Salón:</label>
+                <input type="text" id="adm-salon" required>
+            </div>
+            <div class="form-group">
+                <label>Docente:</label>
+                <input type="text" id="adm-docente" required>
+            </div>
+            <button type="submit" class="btn-agregar" style="width: 100%; padding: 10px;">Guardar Nueva Materia</button>
+        </form>
+    </div>
+</div>
+
 <script>
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTjA9jPr8jZgFrGoicY7rwUhLAHl-cTdLDsTNI5D02m9P6nPjDVEFnNwCmcWGDG5epd_ejuZFcaB4os/pub?output=csv';
     let datosGlobales = [];
     let horarioProvisional = [];
+    const CLAVE_SECRETA = "adminlchorarios2026"; 
 
     async function cargarDatos() {
         try {
@@ -145,7 +212,6 @@
 
         document.getElementById('alerta').innerText = "";
 
-        // Validar cruce de horarios en el mismo día
         for (let item of horarioProvisional) {
             if (item[3].toLowerCase() === diaNuevo.toLowerCase()) {
                 if (inicioNuevo < item[5] && finNuevo > item[4]) {
@@ -155,7 +221,6 @@
             }
         }
 
-        // Evitar duplicar exactamente la misma materia y grupo
         if (horarioProvisional.some(item => item[0] === materiaSeleccionada[0] && item[2] === materiaSeleccionada[2])) {
             document.getElementById('alerta').innerText = "⚠️ Ya agregaste este grupo de esta asignatura.";
             return;
@@ -172,7 +237,6 @@
     }
 
     function actualizarGridHorario() {
-        // Limpiar columnas
         const diasCols = {
             'lunes': document.getElementById('col-lunes'),
             'martes': document.getElementById('col-martes'),
@@ -183,8 +247,6 @@
         };
 
         Object.values(diasCols).forEach(col => col.innerHTML = '');
-
-        // Ordenar materias por hora de inicio
         horarioProvisional.sort((a, b) => a[4].localeCompare(b[4]));
 
         horarioProvisional.forEach(materia => {
@@ -213,6 +275,40 @@
         });
     }
 
+    // Funciones del Modal Administrador
+    function pedirClaveAdmin() {
+        let clave = prompt("Ingresa la contraseña de administrador:");
+        if (clave === CLAVE_SECRETA) {
+            document.getElementById('adminModal').style.display = 'flex';
+        } else if (clave !== null) {
+            alert("Contraseña incorrecta.");
+        }
+    }
+
+    function cerrarModal() {
+        document.getElementById('adminModal').style.display = 'none';
+    }
+
+    function guardarMateriaAdmin(event) {
+        event.preventDefault();
+        const nuevaFila = [
+            document.getElementById('adm-codigo').value,
+            document.getElementById('adm-nombre').value,
+            document.getElementById('adm-grupo').value,
+            document.getElementById('adm-dia').value,
+            document.getElementById('adm-inicio').value,
+            document.getElementById('adm-fin').value,
+            document.getElementById('adm-salon').value,
+            document.getElementById('adm-docente').value
+        ];
+
+        datosGlobales.push(nuevaFila);
+        renderizarTabla(datosGlobales);
+        cerrarModal();
+        alert("¡Materia agregada temporalmente a la tabla! (Recuerda actualizar tu Google Sheets oficial para que guarde los cambios permanentemente).");
+        document.getElementById('adminForm').reset();
+    }
+
     function descargarPDF() {
         if (horarioProvisional.length === 0) {
             alert("Agrega al menos una asignatura a tu horario provisional antes de descargar.");
@@ -239,7 +335,6 @@
         let colWidth = 44;
         let startX = 14;
 
-        // Cabecera PDF
         doc.setFillColor(217, 107, 39);
         doc.setTextColor(255, 255, 255);
         doc.rect(startX, y, colWidth * 6, 8, "F");
