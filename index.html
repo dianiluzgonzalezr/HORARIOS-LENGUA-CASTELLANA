@@ -208,21 +208,21 @@
             <div style="display: flex; gap: 8px;">
                 <div class="form-group" style="flex: 1;">
                     <label>Inicio:</label>
-                    <input type="time" id="adm-inicio" >
+                    <input type="time" id="adm-inicio" required>
                 </div>
                 <div class="form-group" style="flex: 1;">
                     <label>Fin:</label>
-                    <input type="time" id="adm-fin" >
+                    <input type="time" id="adm-fin" required>
                 </div>
             </div>
             <div style="display: flex; gap: 8px;">
                 <div class="form-group" style="flex: 1;">
                     <label>Salón:</label>
-                    <input type="text" id="adm-salon" >
+                    <input type="text" id="adm-salon" required>
                 </div>
                 <div class="form-group" style="flex: 1;">
                     <label>Docente:</label>
-                    <input type="text" id="adm-docente" >
+                    <input type="text" id="adm-docente" required>
                 </div>
             </div>
             <button type="submit" class="btn-agregar" style="width: 100%; padding: 10px; font-size: 13px;" id="btn-submit-admin">Guardar Nueva Asignatura</button>
@@ -278,40 +278,36 @@
         const busqueda = document.getElementById('buscador').value.toLowerCase();
         const semestreFiltro = document.getElementById('filtro-semestre').value;
 
-        const filasFiltradas = datosGlobales.filter((fila, index) => {
-            if(index === 0) return true;
-            const cumpleSemestre = !semestreFiltro || (fila[8] && fila[8].trim().toLowerCase() === semestreFiltro.toLowerCase());
-            const cumpleBusqueda = fila.some(celda => celda.toLowerCase().includes(busqueda));
-            return cumpleSemestre && cumpleBusqueda;
-        });
-        
-        if (filasFiltradas.length > 1 || (filasFiltradas.length === 1 && semestreFiltro === "")) {
-            let html = '<table><thead><tr>';
-            for(let j = 0; j < datosGlobales[0].length; j++) {
-                html += `<th>${datosGlobales[0][j]}</th>`;
-            }
-            html += '<th>Acción</th></tr></thead><tbody>';
+        let html = '<table><thead><tr>';
+        for(let j = 0; j < datosGlobales[0].length; j++) {
+            html += `<th>${datosGlobales[0][j]}</th>`;
+        }
+        html += '<th>Acción</th></tr></thead><tbody>';
 
-            for(let i = 1; i < datosGlobales.length; i++) {
-                let filaOriginal = datosGlobales[i];
-                if(!filaOriginal[0]) continue;
-                
-                let cumpleSemestre = !semestreFiltro || (filaOriginal[8] && filaOriginal[8].trim().toLowerCase() === semestreFiltro.toLowerCase());
-                let cumpleBusqueda = filaOriginal.some(celda => celda.toLowerCase().includes(busqueda));
+        let contador = 0;
+        for(let i = 1; i < datosGlobales.length; i++) {
+            let filaOriginal = datosGlobales[i];
+            if(!filaOriginal[0]) continue;
+            
+            let cumpleSemestre = !semestreFiltro || (filaOriginal[8] && filaOriginal[8].trim().toLowerCase() === semestreFiltro.toLowerCase());
+            let cumpleBusqueda = filaOriginal.some(celda => celda.toLowerCase().includes(busqueda));
 
-                if (cumpleSemestre && cumpleBusqueda) {
-                    html += '<tr>';
-                    for(let j = 0; j < filaOriginal.length; j++) {
-                        html += `<td>${filaOriginal[j] || ''}</td>`;
-                    }
-                    html += `<td><button class="btn-agregar" onclick="agregarAlHorario(${i})">Agregar</button></td>`;
-                    html += '</tr>';
+            if (cumpleSemestre && cumpleBusqueda) {
+                contador++;
+                html += '<tr>';
+                for(let j = 0; j < filaOriginal.length; j++) {
+                    html += `<td>${filaOriginal[j] || ''}</td>`;
                 }
+                html += `<td><button class="btn-agregar" onclick="agregarAlHorario(${i})">Agregar</button></td>`;
+                html += '</tr>';
             }
-            html += '</tbody></table>';
+        }
+        html += '</tbody></table>';
+        
+        if (contador > 0) {
             document.getElementById('tabla-materias').innerHTML = html;
         } else {
-            renderizarTabla([datosGlobales[0]]);
+            document.getElementById('tabla-materias').innerHTML = '<p style="text-align:center; padding:15px; color:#666;">No se encontraron asignaturas con esos criterios.</p>';
         }
     }
 
@@ -535,9 +531,8 @@
         doc.setTextColor(100);
         doc.text("Mi Horario Provisional Ideal - Consolidado Semanal", 14, 22);
 
-        let y = 32;
+        let startY = 32;
         doc.setFontSize(9);
-        doc.setTextColor(0);
 
         let headers = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
         let colWidth = 44;
@@ -545,16 +540,16 @@
 
         doc.setFillColor(217, 107, 39);
         doc.setTextColor(255, 255, 255);
-        doc.rect(startX, y, colWidth * 6, 8, "F");
+        doc.rect(startX, startY, colWidth * 6, 8, "F");
         
         headers.forEach((h, i) => {
-            doc.text(h, startX + (i * colWidth) + 12, y + 6);
+            doc.text(h, startX + (i * colWidth) + 12, startY + 6);
         });
 
-        y += 8;
-        doc.setTextColor(0);
-        let rowHeight = 40;
-        doc.rect(startX, y, colWidth * 6, rowHeight);
+        let currentY = startY + 8;
+        let rowHeight = 45;
+        doc.setDrawColor(176, 196, 222);
+        doc.rect(startX, currentY, colWidth * 6, rowHeight);
 
         let diasKeys = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
         diasKeys.forEach((dia, index) => {
@@ -563,12 +558,24 @@
                 return dNorm.includes(dia);
             });
 
-            let posY = y + 5;
+            let posY = currentY + 6;
             matDelDia.forEach(m => {
-                let texto = `${m[1]} (Cód: ${m[0]})\n${m[4]}-${m[5]}\nSalón: ${m[6]}`;
+                doc.setTextColor(11, 60, 93);
+                doc.setFont("helvetica", "bold");
+                doc.text(m[1], startX + (index * colWidth) + 2, posY, { maxWidth: colWidth - 4 });
+                posY += 5;
+
+                doc.setTextColor(0);
+                doc.setFont("helvetica", "normal");
                 doc.setFontSize(7);
-                doc.text(texto, startX + (index * colWidth) + 2, posY, { maxWidth: colWidth - 4 });
-                posY += 12;
+                doc.text(`Cód: ${m[0]} | G: ${m[2]}`, startX + (index * colWidth) + 2, posY);
+                posY += 4;
+                doc.text(`Cat/Sem: ${m[8] || 'N/A'}`, startX + (index * colWidth) + 2, posY);
+                posY += 4;
+                doc.text(`🕒 ${m[4]} - ${m[5]}`, startX + (index * colWidth) + 2, posY);
+                posY += 4;
+                doc.text(`📍 ${m[6]} | 👨‍🏫 ${m[7]}`, startX + (index * colWidth) + 2, posY, { maxWidth: colWidth - 4 });
+                posY += 7;
             });
         });
 
