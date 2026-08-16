@@ -98,6 +98,8 @@
             <option value="VIII">Semestre VIII</option>
             <option value="IX">Semestre IX</option>
             <option value="X">Semestre X</option>
+            <option value="X">Electiva de Contexto</option>
+            <option value="X">Electiva de Profundización</option>
         </select>
     </div>
     
@@ -238,7 +240,6 @@
     let datosGlobales = [];
     let horarioProvisional = [];
     
-    // Contraseña en texto plano para garantizar acceso inmediato y evitar problemas de carga con librerías externas de hash
     const CLAVE_ADMIN = "adminlc2026";
 
     async function cargarDatos() {
