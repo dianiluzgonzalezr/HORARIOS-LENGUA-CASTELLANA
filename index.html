@@ -23,7 +23,8 @@
         #filtro-semestre { flex: 1; min-width: 150px; padding: 10px; box-sizing: border-box; border: 2px solid var(--ua-blue); border-radius: 5px; font-size: 14px; background: white; }
         
         .table-responsive { width: 100%; overflow-x: auto; margin-bottom: 15px; -webkit-overflow-scrolling: touch; }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        #tabla-materias table { white-space: nowrap; }
         th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
         th { background: var(--ua-orange); color: white; }
         tr:nth-child(even) { background: #f2f2f2; }
@@ -63,8 +64,115 @@
             .container { padding: 10px; margin: 5px; }
             .logos img { height: 35px; }
             .btn-admin { width: 100%; margin-top: 5px; }
+
+            /* La tabla de resultados se adapta al ancho del móvil. */
+            #tabla-materias .table-responsive { overflow-x: visible; }
+            #tabla-materias table,
+            #tabla-materias tbody,
+            #tabla-materias tr,
+            #tabla-materias td { display: block; width: 100%; box-sizing: border-box; }
+            #tabla-materias thead { display: none; }
+            #tabla-materias tr {
+                margin-bottom: 10px;
+                border: 1px solid #d5dce2;
+                border-radius: 6px;
+                background: #fff;
+                overflow: hidden;
+            }
+            #tabla-materias td {
+                text-align: left;
+                white-space: normal;
+                padding: 7px 10px;
+                border: 0;
+                border-bottom: 1px solid #eee;
+            }
+            #tabla-materias td:last-child { border-bottom: 0; text-align: center; }
+            #tabla-materias td::before {
+                content: attr(data-label);
+                display: block;
+                font-weight: bold;
+                color: var(--ua-blue);
+                font-size: 10px;
+                margin-bottom: 2px;
+            }
+            #tabla-materias td:last-child::before { display: none; }
+            #tabla-materias .btn-agregar { width: 100%; padding: 8px; }
+
+            /* En móvil el horario deja de ser una tabla de 6 columnas:
+               cada día ocupa todo el ancho y sus materias quedan dentro. */
+            .tabla-horario-grid {
+                min-width: 0;
+                width: 100%;
+                display: block;
+            }
+            .tabla-horario-grid thead { display: none; }
+            .tabla-horario-grid tbody,
+            .tabla-horario-grid tr { display: block; width: 100%; }
+            .tabla-horario-grid td {
+                display: block;
+                width: 100% !important;
+                min-height: 35px;
+                box-sizing: border-box;
+                text-align: left;
+                padding: 8px;
+                margin-bottom: 8px;
+                border: 1px solid #b0c4de;
+                border-radius: 5px;
+            }
+            .tabla-horario-grid td::before {
+                display: block;
+                font-weight: bold;
+                color: var(--ua-blue);
+                margin-bottom: 6px;
+                font-size: 12px;
+            }
+            #col-lunes::before { content: "Lunes"; }
+            #col-martes::before { content: "Martes"; }
+            #col-miercoles::before { content: "Miércoles"; }
+            #col-jueves::before { content: "Jueves"; }
+            #col-viernes::before { content: "Viernes"; }
+            #col-sabado::before { content: "Sábado"; }
+            .celda-materia { margin-bottom: 6px; }
+
+            .filtros-busqueda { flex-direction: column; }
+            #buscador, #filtro-semestre { width: 100%; min-width: 0; }
         }
     </style>
+<style>
+    footer {
+        background-color: var(--ua-blue, #0b3c5d);
+        color: white;
+        text-align: center;
+        padding: 20px 15px;
+        margin-top: 40px;
+        font-family: Arial, sans-serif;
+        border-top: 4px solid var(--ua-orange, #d96b27);
+    }
+    .footer-content {
+        max-width: 800px;
+        margin: 0 auto;
+        font-size: 13px;
+        line-height: 1.6;
+    }
+    .footer-content strong {
+        font-size: 14px;
+        letter-spacing: 0.5px;
+    }
+    .footer-content a {
+        color: #ffcc99;
+        text-decoration: none;
+    }
+    .footer-content a:hover {
+        text-decoration: underline;
+    }
+    .footer-dev {
+        margin-top: 10px;
+        font-size: 11px;
+        color: #dcdcdc;
+        border-top: 1px solid rgba(255, 255, 255, 0.2);
+        padding-top: 8px;
+    }
+</style>
 </head>
 <body>
 
@@ -245,69 +353,118 @@
                 .map(fila => fila.split(',').map(celda => celda.trim().replace(/^"|"$/g, '')))
                 .filter(fila => fila.length > 1 && fila[0] !== "");
 
-            renderizarTabla(datosGlobales);
+            // No mostrar todo el catálogo al cargar.
+            // El usuario verá resultados únicamente cuando busque o filtre por semestre.
+            mostrarMensajeBusqueda();
         } catch (error) {
             console.error("Error al cargar los datos:", error);
             document.getElementById('tabla-materias').innerHTML = "<p style='color:red;'>Error al cargar los datos del Google Sheets.</p>";
         }
     }
 
-    function renderizarTabla(datos) {
-        if (!datos || datos.length === 0) return;
+    function escaparHTML(valor) {
+        return String(valor ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function mostrarMensajeBusqueda() {
+        document.getElementById('tabla-materias').innerHTML =
+            '<p style="text-align:center; padding:20px; color:#666; border:1px dashed #ccc; border-radius:6px;">' +
+            'Escribe una materia, código, docente o selecciona un semestre para mostrar las asignaturas.' +
+            '</p>';
+    }
+
+    function construirTablaResultados(datos) {
+        if (!datos || datos.length <= 1) {
+            document.getElementById('tabla-materias').innerHTML =
+                '<p style="text-align:center; padding:15px; color:#666;">No hay asignaturas disponibles.</p>';
+            return;
+        }
+
         let html = '<table><thead><tr>';
-        
-        for(let j = 0; j < datos[0].length; j++) {
-            html += `<th>${datos[0][j]}</th>`;
+        for (let j = 0; j < datos[0].length; j++) {
+            html += `<th>${escaparHTML(datos[0][j])}</th>`;
         }
         html += '<th>Acción</th></tr></thead><tbody>';
 
-        for(let i = 1; i < datos.length; i++) {
-            if(!datos[i][0]) continue;
+        for (let r = 1; r < datos.length; r++) {
+            const fila = datos[r];
+            if (!fila || !fila[0]) continue;
+
             html += '<tr>';
-            for(let j = 0; j < datos[i].length; j++) {
-                html += `<td>${datos[i][j] || ''}</td>`;
+            for (let j = 0; j < datos[0].length; j++) {
+                const etiqueta = escaparHTML(datos[0][j] || `Campo ${j + 1}`);
+                html += `<td data-label="${etiqueta}">${escaparHTML(fila[j] || '')}</td>`;
             }
-            html += `<td><button class="btn-agregar" onclick="agregarAlHorario(${i})">Agregar</button></td>`;
+            html += `<td><button class="btn-agregar" onclick="agregarAlHorario(${fila._indiceOriginal})">Agregar</button></td>`;
             html += '</tr>';
         }
+
         html += '</tbody></table>';
         document.getElementById('tabla-materias').innerHTML = html;
     }
 
+    function renderizarTabla(datos) {
+        // Se conserva para el panel admin, pero la vista pública no la llama al iniciar.
+        if (!datos || datos.length <= 1) return;
+        const filas = datos.slice(1).map((fila, pos) => {
+            const copia = [...fila];
+            copia._indiceOriginal = pos + 1;
+            return copia;
+        });
+        construirTablaResultados([datos[0], ...filas]);
+    }
+
     function filtrar() {
-        const busqueda = document.getElementById('buscador').value.toLowerCase();
-        const semestreFiltro = document.getElementById('filtro-semestre').value;
-
-        let html = '<table><thead><tr>';
-        for(let j = 0; j < datosGlobales[0].length; j++) {
-            html += `<th>${datosGlobales[0][j]}</th>`;
+        if (!datosGlobales || datosGlobales.length <= 1) {
+            mostrarMensajeBusqueda();
+            return;
         }
-        html += '<th>Acción</th></tr></thead><tbody>';
 
+        const busqueda = document.getElementById('buscador').value.trim().toLowerCase();
+        const semestreFiltro = document.getElementById('filtro-semestre').value.trim().toLowerCase();
+
+        // No cargar miles de registros hasta que exista un criterio de búsqueda.
+        if (!busqueda && !semestreFiltro) {
+            mostrarMensajeBusqueda();
+            return;
+        }
+
+        const encabezados = datosGlobales[0];
+        const resultados = [encabezados];
         let contador = 0;
-        for(let i = 1; i < datosGlobales.length; i++) {
-            let filaOriginal = datosGlobales[i];
-            if(!filaOriginal[0]) continue;
-            
-            let cumpleSemestre = !semestreFiltro || (filaOriginal[8] && filaOriginal[8].trim().toLowerCase() === semestreFiltro.toLowerCase());
-            let cumpleBusqueda = filaOriginal.some(celda => celda.toLowerCase().includes(busqueda));
+
+        for (let i = 1; i < datosGlobales.length; i++) {
+            const filaOriginal = datosGlobales[i];
+            if (!filaOriginal || !filaOriginal[0]) continue;
+
+            const cumpleSemestre =
+                !semestreFiltro ||
+                (filaOriginal[8] || '').trim().toLowerCase() === semestreFiltro;
+
+            const cumpleBusqueda =
+                !busqueda ||
+                filaOriginal.some(celda =>
+                    String(celda || '').toLowerCase().includes(busqueda)
+                );
 
             if (cumpleSemestre && cumpleBusqueda) {
+                const fila = [...filaOriginal];
+                fila._indiceOriginal = i;
+                resultados.push(fila);
                 contador++;
-                html += '<tr>';
-                for(let j = 0; j < filaOriginal.length; j++) {
-                    html += `<td>${filaOriginal[j] || ''}</td>`;
-                }
-                html += `<td><button class="btn-agregar" onclick="agregarAlHorario(${i})">Agregar</button></td>`;
-                html += '</tr>';
             }
         }
-        html += '</tbody></table>';
-        
+
         if (contador > 0) {
-            document.getElementById('tabla-materias').innerHTML = html;
+            construirTablaResultados(resultados);
         } else {
-            document.getElementById('tabla-materias').innerHTML = '<p style="text-align:center; padding:15px; color:#666;">No se encontraron asignaturas con esos criterios.</p>';
+            document.getElementById('tabla-materias').innerHTML =
+                '<p style="text-align:center; padding:15px; color:#666;">No se encontraron asignaturas con esos criterios.</p>';
         }
     }
 
@@ -356,29 +513,37 @@
         };
 
         Object.values(diasCols).forEach(col => col.innerHTML = '');
-        horarioProvisional.sort((a, b) => a[4].localeCompare(b[4]));
+        horarioProvisional.sort((a, b) =>
+            String(a[4] || '').localeCompare(String(b[4] || ''))
+        );
 
         horarioProvisional.forEach(materia => {
-            const diaNorm = (materia[3] || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-            let diaKey = '';
-            
-            if(diaNorm.includes('lunes')) diaKey = 'lunes';
-            else if(diaNorm.includes('martes')) diaKey = 'martes';
-            else if(diaNorm.includes('miercoles')) diaKey = 'miércoles';
-            else if(diaNorm.includes('jueves')) diaKey = 'jueves';
-            else if(diaNorm.includes('viernes')) diaKey = 'viernes';
-            else if(diaNorm.includes('sabado')) diaKey = 'sábado';
+            const diaNorm = String(materia[3] || '')
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "");
 
-            if(diaKey && diasCols[diaKey]) {
+            let diaKey = '';
+            if (diaNorm.includes('lunes')) diaKey = 'lunes';
+            else if (diaNorm.includes('martes')) diaKey = 'martes';
+            else if (diaNorm.includes('miercoles')) diaKey = 'miércoles';
+            else if (diaNorm.includes('jueves')) diaKey = 'jueves';
+            else if (diaNorm.includes('viernes')) diaKey = 'viernes';
+            else if (diaNorm.includes('sabado')) diaKey = 'sábado';
+
+            if (diaKey && diasCols[diaKey]) {
+                const codigo = String(materia[0] || '').replace(/'/g, "\\'");
+                const grupo = String(materia[2] || '').replace(/'/g, "\\'");
+
                 diasCols[diaKey].innerHTML += `
                     <div class="celda-materia">
-                        <strong>${materia[1]}</strong><br>
-                        Cód: ${materia[0]} | G: ${materia[2]}<br>
-                        Cat/Sem: ${materia[8] || 'N/A'}<br>
-                        🕒 ${materia[4]} - ${materia[5]}<br>
-                        📍 ${materia[6]}<br>
-                        👨‍🏫 ${materia[7]}<br>
-                        <button class="btn-eliminar" onclick="eliminarDelHorario('${materia[0]}', '${materia[2]}')">Quitar</button>
+                        <strong>${escaparHTML(materia[1])}</strong><br>
+                        Cód: ${escaparHTML(materia[0])} | G: ${escaparHTML(materia[2])}<br>
+                        Cat/Sem: ${escaparHTML(materia[8] || 'N/A')}<br>
+                        Hora: ${escaparHTML(materia[4])} - ${escaparHTML(materia[5])}<br>
+                        Salón: ${escaparHTML(materia[6])}<br>
+                        Docente: ${escaparHTML(materia[7])}<br>
+                        <button class="btn-eliminar" onclick="eliminarDelHorario('${codigo}', '${grupo}')">Quitar</button>
                     </div>
                 `;
             }
@@ -519,108 +684,114 @@
             return;
         }
 
+        if (!window.jspdf || !window.jspdf.jsPDF) {
+            alert("No se pudo cargar el generador de PDF. Verifica tu conexión a Internet y vuelve a intentarlo.");
+            return;
+        }
+
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF('landscape');
+        const doc = new jsPDF('landscape', 'mm', 'a4');
 
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(16);
+        doc.setFontSize(15);
         doc.setTextColor(11, 60, 93);
         doc.text("Licenciatura en Humanidades y Lengua Castellana", 14, 15);
-        
-        doc.setFontSize(12);
-        doc.setTextColor(100);
-        doc.text("Mi Horario Provisional Ideal - Consolidado Semanal", 14, 22);
 
-        let startY = 32;
-        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(80);
+        doc.text("Mi Horario Provisional - Consolidado Semanal", 14, 22);
 
-        let headers = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-        let colWidth = 44;
-        let startX = 14;
+        const startX = 10;
+        const startY = 29;
+        const pageWidth = 277;
+        const colWidth = pageWidth / 6;
+        const headerHeight = 8;
+        const rowHeight = 145;
 
-        doc.setFillColor(217, 107, 39);
-        doc.setTextColor(255, 255, 255);
-        doc.rect(startX, startY, colWidth * 6, 8, "F");
-        
+        const headers = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+        // Encabezados
         headers.forEach((h, i) => {
-            doc.text(h, startX + (i * colWidth) + 12, startY + 6);
+            const x = startX + i * colWidth;
+            doc.setFillColor(217, 107, 39);
+            doc.setTextColor(255, 255, 255);
+            doc.rect(x, startY, colWidth, headerHeight, "F");
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9);
+            doc.text(h, x + colWidth / 2, startY + 5.5, { align: "center" });
         });
 
-        let currentY = startY + 8;
-        let rowHeight = 45;
-        doc.setDrawColor(176, 196, 222);
-        doc.rect(startX, currentY, colWidth * 6, rowHeight);
+        // Normalización SIN acentos para que coincida con las claves del filtro.
+        const diasKeys = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
 
-        let diasKeys = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
         diasKeys.forEach((dia, index) => {
-            let matDelDia = horarioProvisional.filter(m => {
-                let dNorm = m[3].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const x = startX + index * colWidth;
+            const y = startY + headerHeight;
+
+            doc.setDrawColor(176, 196, 222);
+            doc.rect(x, y, colWidth, rowHeight);
+
+            const matDelDia = horarioProvisional.filter(m => {
+                const dNorm = String(m[3] || "")
+                    .toLowerCase()
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "");
                 return dNorm.includes(dia);
             });
 
-            let posY = currentY + 6;
+            let posY = y + 7;
+
             matDelDia.forEach(m => {
+                if (posY > y + rowHeight - 25) {
+                    // Si un día tiene demasiadas materias, crea una segunda página.
+                    // En la página nueva se vuelve a dibujar una columna completa para ese día.
+                    return;
+                }
+
                 doc.setTextColor(11, 60, 93);
                 doc.setFont("helvetica", "bold");
-                doc.text(m[1], startX + (index * colWidth) + 2, posY, { maxWidth: colWidth - 4 });
-                posY += 5;
+                doc.setFontSize(7.5);
+                const nombre = doc.splitTextToSize(String(m[1] || ""), colWidth - 5);
+                doc.text(nombre, x + 2.5, posY);
+                posY += nombre.length * 3.5 + 2;
 
                 doc.setTextColor(0);
                 doc.setFont("helvetica", "normal");
-                doc.setFontSize(7);
-                doc.text(`Cód: ${m[0]} | G: ${m[2]}`, startX + (index * colWidth) + 2, posY);
-                posY += 4;
-                doc.text(`Cat/Sem: ${m[8] || 'N/A'}`, startX + (index * colWidth) + 2, posY);
-                posY += 4;
-                doc.text(`🕒 ${m[4]} - ${m[5]}`, startX + (index * colWidth) + 2, posY);
-                posY += 4;
-                doc.text(`📍 ${m[6]} | 👨‍🏫 ${m[7]}`, startX + (index * colWidth) + 2, posY, { maxWidth: colWidth - 4 });
-                posY += 7;
+                doc.setFontSize(6.5);
+
+                const lineas = [
+                    `Codigo: ${m[0] || ''} | Grupo: ${m[2] || ''}`,
+                    `Semestre: ${m[8] || 'N/A'}`,
+                    `Hora: ${m[4] || ''} - ${m[5] || ''}`,
+                    `Salon: ${m[6] || ''}`,
+                    `Docente: ${m[7] || ''}`
+                ];
+
+                lineas.forEach(linea => {
+                    const partes = doc.splitTextToSize(String(linea), colWidth - 5);
+                    doc.text(partes, x + 2.5, posY);
+                    posY += partes.length * 3 + 1.5;
+                });
+
+                posY += 3;
             });
         });
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+        doc.setTextColor(90);
+        doc.text(
+            `Generado el ${new Date().toLocaleDateString('es-CO')}`,
+            14,
+            190
+        );
 
         doc.save("Mi_Horario_Ideal.pdf");
     }
 
     cargarDatos();
 </script>
-</body>
-
-<style>
-    footer {
-        background-color: var(--ua-blue, #0b3c5d);
-        color: white;
-        text-align: center;
-        padding: 20px 15px;
-        margin-top: 40px;
-        font-family: Arial, sans-serif;
-        border-top: 4px solid var(--ua-orange, #d96b27);
-    }
-    .footer-content {
-        max-width: 800px;
-        margin: 0 auto;
-        font-size: 13px;
-        line-height: 1.6;
-    }
-    .footer-content strong {
-        font-size: 14px;
-        letter-spacing: 0.5px;
-    }
-    .footer-content a {
-        color: #ffcc99;
-        text-decoration: none;
-    }
-    .footer-content a:hover {
-        text-decoration: underline;
-    }
-    .footer-dev {
-        margin-top: 10px;
-        font-size: 11px;
-        color: #dcdcdc;
-        border-top: 1px solid rgba(255, 255, 255, 0.2);
-        padding-top: 8px;
-    }
-</style>
 
 <footer>
     <div class="footer-content">
@@ -633,4 +804,5 @@
         </div>
     </div>
 </footer>
+</body>
 </html>
