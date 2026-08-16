@@ -3,17 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Armador de Horarios - Lic. Humanidades</title>
+    <title>Horarios - Lic. Humanidades</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root { --ua-blue: #0b3c5d; --ua-orange: #d96b27; }
         body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f7f9; color: #333; }
         
-        header { background: var(--ua-blue); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        header { background: var(--ua-blue); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; position: relative; }
         .header-content { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
         .logos { display: flex; gap: 10px; align-items: center; }
         .logos img { height: 45px; }
         header h1 { font-size: 18px; margin: 0; }
+        .header-actions { display: flex; align-items: center; gap: 8px; }
+        .btn-hamburguesa { display: none; background: transparent; border: none; color: white; font-size: 24px; line-height: 1; cursor: pointer; padding: 4px 10px; border-radius: 4px; }
+        .btn-hamburguesa:hover { background: rgba(255,255,255,0.15); }
+        .menu-movil { display: none; background: #0a3350; padding: 12px 15px; border-top: 1px solid rgba(255,255,255,0.15); }
+        .menu-movil .btn-admin { width: 100%; }
 
         .container { max-width: 1300px; margin: 15px auto; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         h2 { font-size: 16px; color: var(--ua-blue); }
@@ -24,12 +29,24 @@
         
         .table-responsive { width: 100%; overflow-x: auto; margin-bottom: 15px; -webkit-overflow-scrolling: touch; }
         table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        #tabla-materias table { white-space: nowrap; }
         th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
         th { background: var(--ua-orange); color: white; }
         tr:nth-child(even) { background: #f2f2f2; }
+
+        /* Tarjetas de resultados agrupadas por asignatura (acordeón). */
+        .materia-card { border: 1px solid #d5dce2; border-radius: 6px; margin-bottom: 10px; overflow: hidden; background: #fff; }
+        .materia-card-header { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; background: #eef2f5; border: none; padding: 12px; cursor: pointer; text-align: left; font: inherit; }
+        .materia-card-header:hover { background: #e3e9ee; }
+        .materia-card-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+        .materia-card-info strong { font-size: 13px; color: var(--ua-blue); }
+        .materia-card-meta { font-size: 11px; color: #666; }
+        .materia-card-chevron { font-size: 16px; color: var(--ua-blue); flex-shrink: 0; transition: transform 0.15s; }
+        .materia-card-body { padding: 8px 10px; }
+        .grupo-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 10px; background: #fafbfc; border: 1px solid #eee; border-left: 4px solid var(--ua-orange); border-radius: 4px; margin-bottom: 7px; font-size: 12px; }
+        .grupo-item:last-child { margin-bottom: 0; }
+        .grupo-item-info { display: flex; flex-direction: column; gap: 2px; text-align: left; }
         
-        .btn-agregar { background: var(--ua-blue); color: white; border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 11px; }
+        .btn-agregar { background: var(--ua-blue); color: white; border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 11px; white-space: nowrap; }
         .btn-agregar:hover { background: var(--ua-orange); }
         .btn-eliminar { background: #d9534f; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 10px; }
         .btn-editar { background: #f0ad4e; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 10px; margin-right: 4px; }
@@ -62,45 +79,20 @@
         #admin-buscador { width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
 
         @media (max-width: 600px) {
-            header { padding: 10px; justify-content: center; text-align: center; }
-            .header-content { flex-direction: column; align-items: center; gap: 5px; width: 100%; }
-            header h1 { font-size: 15px; }
+            header { padding: 10px 12px; justify-content: space-between; text-align: left; }
+            .header-content { flex-direction: row; align-items: center; gap: 8px; }
+            header h1 { font-size: 13px; }
             .container { padding: 10px; margin: 5px; }
-            .logos img { height: 35px; }
-            .btn-admin { width: 100%; margin-top: 5px; }
+            .logos img { height: 30px; }
 
-            /* La tabla de resultados se adapta al ancho del móvil. */
-            #tabla-materias .table-responsive { overflow-x: visible; }
-            #tabla-materias table,
-            #tabla-materias tbody,
-            #tabla-materias tr,
-            #tabla-materias td { display: block; width: 100%; box-sizing: border-box; }
-            #tabla-materias thead { display: none; }
-            #tabla-materias tr {
-                margin-bottom: 10px;
-                border: 1px solid #d5dce2;
-                border-radius: 6px;
-                background: #fff;
-                overflow: hidden;
-            }
-            #tabla-materias td {
-                text-align: left;
-                white-space: normal;
-                padding: 7px 10px;
-                border: 0;
-                border-bottom: 1px solid #eee;
-            }
-            #tabla-materias td:last-child { border-bottom: 0; text-align: center; }
-            #tabla-materias td::before {
-                content: attr(data-label);
-                display: block;
-                font-weight: bold;
-                color: var(--ua-blue);
-                font-size: 10px;
-                margin-bottom: 2px;
-            }
-            #tabla-materias td:last-child::before { display: none; }
-            #tabla-materias .btn-agregar { width: 100%; padding: 8px; }
+            /* En móvil se oculta el botón admin fijo y aparece el ícono hamburguesa. */
+            .btn-hamburguesa { display: block; }
+            .header-actions .btn-admin { display: none; }
+            .menu-movil.abierto { display: block; }
+
+            .materia-card-info strong { font-size: 12.5px; }
+            .grupo-item { flex-direction: column; align-items: stretch; }
+            .grupo-item .btn-agregar { width: 100%; padding: 8px; margin-top: 4px; }
 
             /* En móvil el horario deja de ser una tabla de 6 columnas:
                cada día ocupa todo el ancho y sus materias quedan dentro. */
@@ -186,10 +178,16 @@
             <img src="UA.png" alt="UA">
             <img src="LC.png" alt="Programa">
         </div>
-        <h1>Armador de Horario - Estudiantes</h1>
+        <h1>Horario - Estudiantes</h1>
     </div>
-    <button class="btn-admin" onclick="pedirClaveAdmin()">Panel Admin 🔒</button>
+    <div class="header-actions">
+        <button class="btn-admin" onclick="pedirClaveAdmin()">Panel Admin 🔒</button>
+        <button class="btn-hamburguesa" id="btn-hamburguesa" onclick="toggleMenuMovil()" aria-label="Abrir menú">☰</button>
+    </div>
 </header>
+<div id="menu-movil" class="menu-movil">
+    <button class="btn-admin" onclick="pedirClaveAdmin(); toggleMenuMovil();">Panel Admin 🔒</button>
+</div>
 
 <div class="container">
     <h2>1. Buscar Asignaturas del Programa</h2>
@@ -380,6 +378,10 @@
             .replace(/'/g, '&#039;');
     }
 
+    function toggleMenuMovil() {
+        document.getElementById('menu-movil').classList.toggle('abierto');
+    }
+
     function mostrarMensajeBusqueda() {
         document.getElementById('tabla-materias').innerHTML =
             '<p style="text-align:center; padding:20px; color:#666; border:1px dashed #ccc; border-radius:6px;">' +
@@ -394,27 +396,82 @@
             return;
         }
 
-        let html = '<table><thead><tr>';
-        for (let j = 0; j < datos[0].length; j++) {
-            html += `<th>${escaparHTML(datos[0][j])}</th>`;
-        }
-        html += '<th>Acción</th></tr></thead><tbody>';
+        // Se agrupan todas las filas por código de asignatura, para no repetir
+        // nombre/código/semestre por cada grupo: se muestra una tarjeta por materia
+        // y, al abrirla, la lista de grupos disponibles con su día, hora, salón y docente.
+        const grupos = {};
+        const ordenCodigos = [];
 
         for (let r = 1; r < datos.length; r++) {
             const fila = datos[r];
             if (!fila || !fila[0]) continue;
 
-            html += '<tr>';
-            for (let j = 0; j < datos[0].length; j++) {
-                const etiqueta = escaparHTML(datos[0][j] || `Campo ${j + 1}`);
-                html += `<td data-label="${etiqueta}">${escaparHTML(fila[j] || '')}</td>`;
+            const codigo = String(fila[0]).trim();
+            if (!grupos[codigo]) {
+                grupos[codigo] = {
+                    codigo,
+                    nombre: fila[1] || 'Sin nombre',
+                    semestre: fila[8] || '',
+                    filas: []
+                };
+                ordenCodigos.push(codigo);
             }
-            html += `<td><button class="btn-agregar" onclick="agregarAlHorario(${fila._indiceOriginal})">Agregar</button></td>`;
-            html += '</tr>';
+            grupos[codigo].filas.push(fila);
         }
 
-        html += '</tbody></table>';
+        if (!ordenCodigos.length) {
+            document.getElementById('tabla-materias').innerHTML =
+                '<p style="text-align:center; padding:15px; color:#666;">No hay asignaturas disponibles.</p>';
+            return;
+        }
+
+        let html = '';
+        ordenCodigos.forEach((codigo, idx) => {
+            const g = grupos[codigo];
+            const idAcordeon = `acc-${idx}-${codigo.replace(/[^a-zA-Z0-9]/g, '')}`;
+            const totalGrupos = g.filas.length;
+
+            html += `
+                <div class="materia-card">
+                    <button type="button" class="materia-card-header" onclick="toggleAcordeon('${idAcordeon}')">
+                        <div class="materia-card-info">
+                            <strong>${escaparHTML(g.nombre)}</strong>
+                            <span class="materia-card-meta">Cód: ${escaparHTML(codigo)}${g.semestre ? ` • Sem ${escaparHTML(g.semestre)}` : ''} • ${totalGrupos} grupo${totalGrupos !== 1 ? 's' : ''} disponible${totalGrupos !== 1 ? 's' : ''}</span>
+                        </div>
+                        <span class="materia-card-chevron" id="chev-${idAcordeon}">▾</span>
+                    </button>
+                    <div class="materia-card-body" id="${idAcordeon}" style="display:none;">
+            `;
+
+            g.filas.forEach(fila => {
+                html += `
+                    <div class="grupo-item">
+                        <div class="grupo-item-info">
+                            <span><strong>Grupo:</strong> ${escaparHTML(fila[2] || 'N/A')}</span>
+                            <span><strong>Día:</strong> ${escaparHTML(fila[3] || 'No asignado')}</span>
+                            <span><strong>Hora:</strong> ${escaparHTML(fila[4] || 'No asignada')} - ${escaparHTML(fila[5] || 'No asignada')}</span>
+                            <span><strong>Salón:</strong> ${escaparHTML(fila[6] || 'No asignado')}</span>
+                            <span><strong>Docente:</strong> ${escaparHTML(fila[7] || 'No asignado')}</span>
+                        </div>
+                        <button class="btn-agregar" onclick="agregarAlHorario(${fila._indiceOriginal})">Agregar</button>
+                    </div>
+                `;
+            });
+
+            html += `</div></div>`;
+        });
+
         document.getElementById('tabla-materias').innerHTML = html;
+    }
+
+    function toggleAcordeon(id) {
+        const cuerpo = document.getElementById(id);
+        const chevron = document.getElementById('chev-' + id);
+        if (!cuerpo) return;
+
+        const estaAbierto = cuerpo.style.display !== 'none';
+        cuerpo.style.display = estaAbierto ? 'none' : 'block';
+        if (chevron) chevron.textContent = estaAbierto ? '▾' : '▴';
     }
 
     function renderizarTabla(datos) {
