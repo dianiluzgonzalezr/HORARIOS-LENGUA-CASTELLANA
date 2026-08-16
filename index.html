@@ -28,7 +28,8 @@
         
         .btn-agregar { background: var(--ua-blue); color: white; border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 11px; }
         .btn-agregar:hover { background: var(--ua-orange); }
-        .btn-eliminar { background: #d9534f; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 10px; margin-top: 5px; }
+        .btn-eliminar { background: #d9534f; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 10px; }
+        .btn-editar { background: #f0ad4e; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 10px; margin-right: 4px; }
         .btn-admin { background: #444; color: white; border: none; padding: 8px 12px; cursor: pointer; border-radius: 5px; font-weight: bold; font-size: 12px; }
         .btn-admin:hover { background: #222; }
         
@@ -45,14 +46,15 @@
 
         /* Estilos del Modal Adaptados a Móvil */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; padding: 10px; box-sizing: border-box; }
-        .modal-content { background: white; padding: 20px; border-radius: 8px; width: 100%; max-width: 450px; max-height: 90vh; overflow-y: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.3); position: relative; }
+        .modal-content { background: white; padding: 20px; border-radius: 8px; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.3); position: relative; }
         .close { position: absolute; right: 15px; top: 10px; font-size: 24px; cursor: pointer; color: #aaa; }
         .close:hover { color: #000; }
         .form-group { margin-bottom: 12px; }
         .form-group label { display: block; margin-bottom: 4px; font-weight: bold; font-size: 12px; }
         .form-group input, .form-group select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
 
-        /* Media Queries específicos para celulares pequeños */
+        #admin-buscador { width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+
         @media (max-width: 600px) {
             header { padding: 10px; justify-content: center; text-align: center; }
             .header-content { flex-direction: column; align-items: center; gap: 5px; width: 100%; }
@@ -117,54 +119,82 @@
     </div>
 </div>
 
-<!-- MODAL DE ADMINISTRADOR RESPONSIVO -->
+<!-- MODAL DE ADMINISTRADOR COMPLETO -->
 <div id="adminModal" class="modal">
     <div class="modal-content">
         <span class="close" onclick="cerrarModal()">&times;</span>
-        <h2>Gestión de Asignaturas</h2>
-        <p style="font-size: 11px; color: #666;">Agrega materias temporalmente al sistema.</p>
+        <h2>Panel de Administrador</h2>
         
-        <form id="adminForm" onsubmit="guardarMateriaAdmin(event)">
-            <div class="form-group">
-                <label>Código de Asignatura:</label>
-                <input type="text" id="adm-codigo" required>
+        <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+            <button type="button" class="btn-agregar" style="flex: 1; padding: 8px;" onclick="cambiarModoAdmin('crear')">➕ Crear Nueva</button>
+            <button type="button" class="btn-editar" style="flex: 1; padding: 8px;" onclick="cambiarModoAdmin('gestionar')">🔍 Buscar / Editar / Eliminar</button>
+        </div>
+
+        <!-- SECCIÓN: BUSCAR, EDITAR O ELIMINAR -->
+        <div id="seccion-gestionar">
+            <p style="font-size: 11px; color: #666; margin-bottom: 8px;">Busca una asignatura existente para editarla o eliminarla:</p>
+            <input type="text" id="admin-buscador" placeholder="Filtrar por código, nombre o docente..." onkeyup="filtrarAdminModal()">
+            
+            <div class="table-responsive" style="max-height: 180px; margin-bottom: 10px;">
+                <table id="tabla-admin-gestor" style="font-size: 11px;">
+                    <!-- Se llena dinámicamente -->
+                </table>
             </div>
-            <div class="form-group">
-                <label>Nombre de la Asignatura:</label>
-                <input type="text" id="adm-nombre" required>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #ddd; margin: 10px 0;">
+
+        <h3 id="admin-form-titulo" style="font-size: 13px; color: var(--ua-blue); margin-bottom: 8px;">Crear Nueva Asignatura</h3>
+        <form id="adminForm" onsubmit="guardarAsignaturaAdmin(event)">
+            <input type="hidden" id="adm-index">
+            <div style="display: flex; gap: 8px;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Código:</label>
+                    <input type="text" id="adm-codigo" required>
+                </div>
+                <div class="form-group" style="flex: 2;">
+                    <label>Nombre:</label>
+                    <input type="text" id="adm-nombre" required>
+                </div>
             </div>
-            <div class="form-group">
-                <label>Grupo:</label>
-                <input type="text" id="adm-grupo" required>
+            <div style="display: flex; gap: 8px;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Grupo:</label>
+                    <input type="text" id="adm-grupo" required>
+                </div>
+                <div class="form-group" style="flex: 2;">
+                    <label>Día:</label>
+                    <select id="adm-dia">
+                        <option value="Lunes">Lunes</option>
+                        <option value="Martes">Martes</option>
+                        <option value="Miércoles">Miércoles</option>
+                        <option value="Jueves">Jueves</option>
+                        <option value="Viernes">Viernes</option>
+                        <option value="Sábado">Sábado</option>
+                    </select>
+                </div>
             </div>
-            <div class="form-group">
-                <label>Día:</label>
-                <select id="adm-dia">
-                    <option value="Lunes">Lunes</option>
-                    <option value="Martes">Martes</option>
-                    <option value="Miércoles">Miércoles</option>
-                    <option value="Jueves">Jueves</option>
-                    <option value="Viernes">Viernes</option>
-                    <option value="Sábado">Sábado</option>
-                </select>
+            <div style="display: flex; gap: 8px;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Inicio:</label>
+                    <input type="time" id="adm-inicio" required>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Fin:</label>
+                    <input type="time" id="adm-fin" required>
+                </div>
             </div>
-            <div class="form-group">
-                <label>Hora Inicio (HH:MM):</label>
-                <input type="time" id="adm-inicio" required>
+            <div style="display: flex; gap: 8px;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Salón:</label>
+                    <input type="text" id="adm-salon" required>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Docente:</label>
+                    <input type="text" id="adm-docente" required>
+                </div>
             </div>
-            <div class="form-group">
-                <label>Hora Fin (HH:MM):</label>
-                <input type="time" id="adm-fin" required>
-            </div>
-            <div class="form-group">
-                <label>Salón:</label>
-                <input type="text" id="adm-salon" required>
-            </div>
-            <div class="form-group">
-                <label>Docente:</label>
-                <input type="text" id="adm-docente" required>
-            </div>
-            <button type="submit" class="btn-agregar" style="width: 100%; padding: 12px; font-size: 14px;">Guardar Materia</button>
+            <button type="submit" class="btn-agregar" style="width: 100%; padding: 10px; font-size: 13px;" id="btn-submit-admin">Guardar Nueva Asignatura</button>
         </form>
     </div>
 </div>
@@ -173,7 +203,9 @@
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTjA9jPr8jZgFrGoicY7rwUhLAHl-cTdLDsTNI5D02m9P6nPjDVEFnNwCmcWGDG5epd_ejuZFcaB4os/pub?output=csv';
     let datosGlobales = [];
     let horarioProvisional = [];
-    const CLAVE_SECRETA = "admin2026";
+    
+    // Contraseña de administrador establecida
+    const CLAVE_ADMIN = "adminlc2026";
 
     async function cargarDatos() {
         try {
@@ -297,19 +329,88 @@
 
     function pedirClaveAdmin() {
         let clave = prompt("Ingresa la contraseña de administrador:");
-        if (clave === CLAVE_SECRETA) {
-            document.getElementById('adminModal').style.display = 'flex';
-        } else if (clave !== null) {
-            alert("Contraseña incorrecta.");
+        if (clave !== null) {
+            if (clave === CLAVE_ADMIN) {
+                document.getElementById('adminModal').style.display = 'flex';
+                cambiarModoAdmin('crear');
+                cargarAdminGestorTabla();
+            } else {
+                alert("Contraseña incorrecta.");
+            }
         }
     }
 
     function cerrarModal() {
         document.getElementById('adminModal').style.display = 'none';
+        document.getElementById('adminForm').reset();
+        document.getElementById('adm-index').value = "";
     }
 
-    function guardarMateriaAdmin(event) {
+    function cambiarModoAdmin(modo) {
+        document.getElementById('adminForm').reset();
+        document.getElementById('adm-index').value = "";
+        
+        if (modo === 'crear') {
+            document.getElementById('seccion-gestionar').style.display = 'none';
+            document.getElementById('admin-form-titulo').innerText = "Crear Nueva Asignatura";
+            document.getElementById('btn-submit-admin').innerText = "Guardar Nueva Asignatura";
+            document.getElementById('btn-submit-admin').style.background = "var(--ua-blue)";
+        } else {
+            document.getElementById('seccion-gestionar').style.display = 'block';
+            document.getElementById('admin-form-titulo').innerText = "Editar Asignatura Seleccionada";
+            document.getElementById('btn-submit-admin').innerText = "Actualizar Asignatura";
+            document.getElementById('btn-submit-admin').style.background = "#f0ad4e";
+            cargarAdminGestorTabla();
+        }
+    }
+
+    function cargarAdminGestorTabla(filtro = "") {
+        let html = '<thead><tr><th>Cód</th><th>Materia</th><th>G</th><th>Acciones</th></tr></thead><tbody>';
+        
+        for(let i = 1; i < datosGlobales.length; i++) {
+            let fila = datosGlobales[i];
+            if(!fila[0]) continue;
+            let textoFila = fila.join(" ").toLowerCase();
+            if(filtro && !textoFila.includes(filtro.toLowerCase())) continue;
+
+            html += `<tr>
+                <td>${fila[0]}</td>
+                <td>${fila[1]}</td>
+                <td>${fila[2]}</td>
+                <td>
+                    <button class="btn-editar" onclick="cargarMateriaParaEditar(${i})">Editar</button>
+                    <button class="btn-eliminar" onclick="eliminarMateriaAdmin(${i})">Eliminar</button>
+                </td>
+            </tr>`;
+        }
+        html += '</tbody>';
+        document.getElementById('tabla-admin-gestor').innerHTML = html;
+    }
+
+    function filtrarAdminModal() {
+        let query = document.getElementById('admin-buscador').value;
+        cargarAdminGestorTabla(query);
+    }
+
+    function cargarMateriaParaEditar(index) {
+        let mat = datosGlobales[index];
+        document.getElementById('adm-index').value = index;
+        document.getElementById('adm-codigo').value = mat[0] || '';
+        document.getElementById('adm-nombre').value = mat[1] || '';
+        document.getElementById('adm-grupo').value = mat[2] || '';
+        document.getElementById('adm-dia').value = mat[3] || 'Lunes';
+        document.getElementById('adm-inicio').value = mat[4] || '';
+        document.getElementById('adm-fin').value = mat[5] || '';
+        document.getElementById('adm-salon').value = mat[6] || '';
+        document.getElementById('adm-docente').value = mat[7] || '';
+        
+        document.getElementById('admin-form-titulo').innerText = `Editando: ${mat[1]} (G${mat[2]})`;
+    }
+
+    function guardarAsignaturaAdmin(event) {
         event.preventDefault();
+        let index = document.getElementById('adm-index').value;
+
         const nuevaFila = [
             document.getElementById('adm-codigo').value,
             document.getElementById('adm-nombre').value,
@@ -321,11 +422,35 @@
             document.getElementById('adm-docente').value
         ];
 
-        datosGlobales.push(nuevaFila);
+        if (index === "") {
+            datosGlobales.push(nuevaFila);
+            alert("¡Nueva asignatura creada exitosamente!");
+        } else {
+            datosGlobales[index] = nuevaFila;
+            alert("¡Asignatura actualizada exitosamente!");
+        }
+
         renderizarTabla(datosGlobales);
-        cerrarModal();
-        alert("¡Materia agregada temporalmente a la tabla!");
+        if (document.getElementById('seccion-gestionar').style.display !== 'none') {
+            cargarAdminGestorTabla();
+        }
         document.getElementById('adminForm').reset();
+        document.getElementById('adm-index').value = "";
+        cambiarModoAdmin('crear');
+    }
+
+    function eliminarMateriaAdmin(index) {
+        if(confirm(`¿Estás segura de eliminar la asignatura ${datosGlobales[index][1]} (Grupo ${datosGlobales[index][2]})?`)) {
+            let matEliminada = datosGlobales[index];
+            datosGlobales.splice(index, 1);
+            renderizarTabla(datosGlobales);
+            cargarAdminGestorTabla();
+            
+            horarioProvisional = horarioProvisional.filter(item => !(item[0] === matEliminada[0] && item[2] === matEliminada[2]));
+            actualizarGridHorario();
+            
+            alert("Asignatura eliminada correctamente.");
+        }
     }
 
     function descargarPDF() {
