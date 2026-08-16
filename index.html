@@ -227,8 +227,34 @@
     let datosGlobales = [];
     let horarioProvisional = [];
     
-    // Hash SHA-256 encriptado correspondiente a "adminlc2026"
-    const HASH_ADMIN = "f9872e4eb245f7be81f9a26322cbcc3ae32483561338a0887ee27f4e0c4516ff";
+    // Hash SHA-256 
+const HASH_ADMIN = "d3a4e9b9cf9b66bb9a444d3ba1a88ebff0775dca275c92beff960bcf77e4860b";
+
+// Función nativa para encriptar en SHA-256
+async function hashTexto(texto) {
+    const msgBuffer = new TextEncoder().encode(texto);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function pedirClaveAdmin() {
+    let clave = prompt("Ingresa la contraseña de administrador:");
+    if (clave !== null) {
+        // .trim() elimina espacios en blanco que se hayan colado al pegar/escribir
+        let claveLimpia = clave.trim(); 
+        let hashIngresado = await hashTexto(claveLimpia);
+        
+        if (hashIngresado === HASH_ADMIN) {
+            document.getElementById('adminModal').style.display = 'flex';
+            cambiarModoAdmin('crear');
+            cargarAdminGestorTabla();
+        } else {
+            alert("Contraseña incorrecta.");
+        }
+    }
+}
+    
 
     // Función nativa para encriptar en SHA-256
     async function hashTexto(texto) {
@@ -387,20 +413,7 @@
         });
     }
 
-    async function pedirClaveAdmin() {
-        let clave = prompt("Ingresa la contraseña de administrador:");
-        if (clave !== null) {
-            // Calcula el hash SHA-256 usando la API nativa de JavaScript
-            let hashIngresado = await hashTexto(clave);
-            if (hashIngresado === HASH_ADMIN) {
-                document.getElementById('adminModal').style.display = 'flex';
-                cambiarModoAdmin('crear');
-                cargarAdminGestorTabla();
-            } else {
-                alert("Contraseña incorrecta.");
-            }
-        }
-    }
+    
 
     function cerrarModal() {
         document.getElementById('adminModal').style.display = 'none';
