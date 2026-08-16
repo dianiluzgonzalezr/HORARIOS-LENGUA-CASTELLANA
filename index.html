@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Armador de Horarios - Lic. Humanidades</title>
+    <!-- Importación de crypto-js para el manejo correcto de contraseñas con hash (SHA-256) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root { --ua-blue: #0b3c5d; --ua-orange: #d96b27; }
@@ -18,7 +20,9 @@
         .container { max-width: 1300px; margin: 15px auto; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         h2 { font-size: 16px; color: var(--ua-blue); }
         
-        #buscador { width: 100%; padding: 10px; margin-bottom: 15px; box-sizing: border-box; border: 2px solid var(--ua-blue); border-radius: 5px; font-size: 14px; }
+        .filtros-busqueda { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+        #buscador { flex: 2; min-width: 200px; padding: 10px; box-sizing: border-box; border: 2px solid var(--ua-blue); border-radius: 5px; font-size: 14px; }
+        #filtro-semestre { flex: 1; min-width: 150px; padding: 10px; box-sizing: border-box; border: 2px solid var(--ua-blue); border-radius: 5px; font-size: 14px; background: white; }
         
         .table-responsive { width: 100%; overflow-x: auto; margin-bottom: 15px; -webkit-overflow-scrolling: touch; }
         table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
@@ -80,7 +84,22 @@
 
 <div class="container">
     <h2>1. Buscar Asignaturas del Programa</h2>
-    <input type="text" id="buscador" placeholder="Escribe materia, código, docente o día..." onkeyup="filtrar()">
+    <div class="filtros-busqueda">
+        <input type="text" id="buscador" placeholder="Escribe materia, código, docente o día..." onkeyup="filtrar()">
+        <select id="filtro-semestre" onchange="filtrar()">
+            <option value="">Todos los Semestres</option>
+            <option value="I">Semestre I</option>
+            <option value="II">Semestre II</option>
+            <option value="III">Semestre III</option>
+            <option value="IV">Semestre IV</option>
+            <option value="V">Semestre V</option>
+            <option value="VI">Semestre VI</option>
+            <option value="VII">Semestre VII</option>
+            <option value="VIII">Semestre VIII</option>
+            <option value="IX">Semestre IX</option>
+            <option value="X">Semestre X</option>
+        </select>
+    </div>
     
     <div class="table-responsive">
         <div id="tabla-materias"></div>
@@ -162,6 +181,21 @@
                     <label>Grupo:</label>
                     <input type="text" id="adm-grupo" required>
                 </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Semestre:</label>
+                    <select id="adm-semestre" required>
+                        <option value="I">I</option>
+                        <option value="II">II</option>
+                        <option value="III">III</option>
+                        <option value="IV">IV</option>
+                        <option value="V">V</option>
+                        <option value="VI">VI</option>
+                        <option value="VII">VII</option>
+                        <option value="VIII">VIII</option>
+                        <option value="IX">IX</option>
+                        <option value="X">X</option>
+                    </select>
+                </div>
                 <div class="form-group" style="flex: 2;">
                     <label>Día:</label>
                     <select id="adm-dia">
@@ -204,8 +238,9 @@
     let datosGlobales = [];
     let horarioProvisional = [];
     
-    // Contraseña de administrador establecida
-    const CLAVE_ADMIN = "adminlc2026";
+    // Hash SHA-256 precalculado de la contraseña "adminlc2026"
+    // Evita problemas de texto plano o saltos de línea accidentales al comparar.
+    const HASH_ADMIN = "235e16f3164fa9f1207198d5c4103c8c7f96c21e64906ec46726ed18cfdf0f86";
 
     async function cargarDatos() {
         try {
@@ -247,9 +282,18 @@
 
     function filtrar() {
         const busqueda = document.getElementById('buscador').value.toLowerCase();
+        const semestreFiltro = document.getElementById('filtro-semestre').value;
+
         const filasFiltradas = datosGlobales.filter((fila, index) => {
             if(index === 0) return true;
-            return fila.some(celda => celda.toLowerCase().includes(busqueda));
+            
+            // Asumiendo que el semestre está en la columna índice 8 (o filtrando el texto general si corresponde)
+            // Verificamos si coincide con el semestre seleccionado (si hay selección)
+            const cumpleSemestre = !semestreFiltro || (fila[8] && fila[8].trim().toUpperCase() === semestreFiltro.toUpperCase());
+            
+            const cumpleBusqueda = fila.some(celda => celda.toLowerCase().includes(busqueda));
+
+            return cumpleSemestre && cumpleBusqueda;
         });
         
         let datosConCabecera = [datosGlobales[0], ...filasFiltradas.slice(1)];
@@ -316,7 +360,7 @@
                 diasCols[diaKey].innerHTML += `
                     <div class="celda-materia">
                         <strong>${materia[1]}</strong><br>
-                        G: ${materia[2]}<br>
+                        G: ${materia[2]} | Sem: ${materia[8] || 'N/A'}<br>
                         🕒 ${materia[4]} - ${materia[5]}<br>
                         📍 ${materia[6]}<br>
                         👨‍🏫 ${materia[7]}<br>
@@ -330,7 +374,9 @@
     function pedirClaveAdmin() {
         let clave = prompt("Ingresa la contraseña de administrador:");
         if (clave !== null) {
-            if (clave === CLAVE_ADMIN) {
+            // Generar hash SHA-256 de lo que ingresó el usuario y comparar con el hash guardado
+            let hashIngresado = CryptoJS.SHA256(clave.trim()).toString();
+            if (hashIngresado === HASH_ADMIN) {
                 document.getElementById('adminModal').style.display = 'flex';
                 cambiarModoAdmin('crear');
                 cargarAdminGestorTabla();
@@ -365,7 +411,7 @@
     }
 
     function cargarAdminGestorTabla(filtro = "") {
-        let html = '<thead><tr><th>Cód</th><th>Materia</th><th>G</th><th>Acciones</th></tr></thead><tbody>';
+        let html = '<thead><tr><th>Cód</th><th>Materia</th><th>G</th><th>Sem</th><th>Acciones</th></tr></thead><tbody>';
         
         for(let i = 1; i < datosGlobales.length; i++) {
             let fila = datosGlobales[i];
@@ -377,6 +423,7 @@
                 <td>${fila[0]}</td>
                 <td>${fila[1]}</td>
                 <td>${fila[2]}</td>
+                <td>${fila[8] || ''}</td>
                 <td>
                     <button class="btn-editar" onclick="cargarMateriaParaEditar(${i})">Editar</button>
                     <button class="btn-eliminar" onclick="eliminarMateriaAdmin(${i})">Eliminar</button>
@@ -398,6 +445,7 @@
         document.getElementById('adm-codigo').value = mat[0] || '';
         document.getElementById('adm-nombre').value = mat[1] || '';
         document.getElementById('adm-grupo').value = mat[2] || '';
+        document.getElementById('adm-semestre').value = mat[8] || 'I';
         document.getElementById('adm-dia').value = mat[3] || 'Lunes';
         document.getElementById('adm-inicio').value = mat[4] || '';
         document.getElementById('adm-fin').value = mat[5] || '';
@@ -419,7 +467,8 @@
             document.getElementById('adm-inicio').value,
             document.getElementById('adm-fin').value,
             document.getElementById('adm-salon').value,
-            document.getElementById('adm-docente').value
+            document.getElementById('adm-docente').value,
+            document.getElementById('adm-semestre').value
         ];
 
         if (index === "") {
