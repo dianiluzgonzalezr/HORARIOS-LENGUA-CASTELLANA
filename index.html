@@ -2,45 +2,65 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Armador de Horarios - Lic. Humanidades</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root { --ua-blue: #0b3c5d; --ua-orange: #d96b27; }
-        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f7f9; }
-        header { background: var(--ua-blue); color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center; }
-        .header-content { display: flex; align-items: center; gap: 20px; }
-        .logos { display: flex; gap: 10px; }
-        .logos img { height: 60px; }
-        .container { max-width: 1300px; margin: 20px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        #buscador { width: 100%; padding: 12px; margin-bottom: 20px; box-sizing: border-box; border: 2px solid var(--ua-blue); border-radius: 5px; font-size: 16px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f7f9; color: #333; }
+        
+        header { background: var(--ua-blue); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .header-content { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .logos { display: flex; gap: 10px; align-items: center; }
+        .logos img { height: 45px; }
+        header h1 { font-size: 18px; margin: 0; }
+
+        .container { max-width: 1300px; margin: 15px auto; padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        h2 { font-size: 16px; color: var(--ua-blue); }
+        
+        #buscador { width: 100%; padding: 10px; margin-bottom: 15px; box-sizing: border-box; border: 2px solid var(--ua-blue); border-radius: 5px; font-size: 14px; }
+        
+        .table-responsive { width: 100%; overflow-x: auto; margin-bottom: 15px; -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
         th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
         th { background: var(--ua-orange); color: white; }
         tr:nth-child(even) { background: #f2f2f2; }
-        .btn-agregar { background: var(--ua-blue); color: white; border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        
+        .btn-agregar { background: var(--ua-blue); color: white; border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 11px; }
         .btn-agregar:hover { background: var(--ua-orange); }
-        .btn-eliminar { background: #d9534f; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 11px; margin-top: 5px; }
-        .btn-admin { background: #444; color: white; border: none; padding: 10px 15px; cursor: pointer; border-radius: 5px; font-weight: bold; }
+        .btn-eliminar { background: #d9534f; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 10px; margin-top: 5px; }
+        .btn-admin { background: #444; color: white; border: none; padding: 8px 12px; cursor: pointer; border-radius: 5px; font-weight: bold; font-size: 12px; }
         .btn-admin:hover { background: #222; }
-        .seccion-provisional { margin-top: 40px; border-top: 3px solid var(--ua-blue); padding-top: 20px; }
-        #alerta { color: #d9534f; font-weight: bold; margin-bottom: 15px; min-height: 20px; text-align: center; }
         
-        .tabla-horario-grid { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        .tabla-horario-grid th, .tabla-horario-grid td { border: 1px solid #b0c4de; padding: 8px; text-align: center; vertical-align: top; width: 16.66%; font-size: 12px; }
+        .seccion-provisional { margin-top: 30px; border-top: 3px solid var(--ua-blue); padding-top: 15px; }
+        #alerta { color: #d9534f; font-weight: bold; margin-bottom: 15px; min-height: 20px; text-align: center; font-size: 13px; }
+        
+        .tabla-horario-grid { width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 600px; }
+        .tabla-horario-grid th, .tabla-horario-grid td { border: 1px solid #b0c4de; padding: 6px; text-align: center; vertical-align: top; width: 16.66%; font-size: 11px; }
         .tabla-horario-grid th { background: var(--ua-blue); color: white; }
-        .celda-materia { background: #eef2f5; border-left: 4px solid var(--ua-orange); padding: 6px; margin-bottom: 6px; border-radius: 3px; text-align: left; }
+        .celda-materia { background: #eef2f5; border-left: 4px solid var(--ua-orange); padding: 5px; margin-bottom: 4px; border-radius: 3px; text-align: left; }
         
-        .btn-pdf { background: var(--ua-orange); color: white; border: none; padding: 12px 20px; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 5px; display: block; margin: 30px auto 0 auto; }
+        .btn-pdf { background: var(--ua-orange); color: white; border: none; padding: 12px 20px; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 5px; display: block; margin: 20px auto 0 auto; width: 100%; max-width: 300px; text-align: center; }
         .btn-pdf:hover { background: #b8541f; }
 
-        /* Estilos del Modal */
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
-        .modal-content { background: white; padding: 30px; border-radius: 8px; width: 500px; max-width: 90%; box-shadow: 0 4px 10px rgba(0,0,0,0.3); position: relative; }
+        /* Estilos del Modal Adaptados a Móvil */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; padding: 10px; box-sizing: border-box; }
+        .modal-content { background: white; padding: 20px; border-radius: 8px; width: 100%; max-width: 450px; max-height: 90vh; overflow-y: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.3); position: relative; }
         .close { position: absolute; right: 15px; top: 10px; font-size: 24px; cursor: pointer; color: #aaa; }
         .close:hover { color: #000; }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; }
-        .form-group input, .form-group select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; margin-bottom: 4px; font-weight: bold; font-size: 12px; }
+        .form-group input, .form-group select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+
+        /* Media Queries específicos para celulares pequeños */
+        @media (max-width: 600px) {
+            header { padding: 10px; justify-content: center; text-align: center; }
+            .header-content { flex-direction: column; align-items: center; gap: 5px; width: 100%; }
+            header h1 { font-size: 15px; }
+            .container { padding: 10px; margin: 5px; }
+            .logos img { height: 35px; }
+            .btn-admin { width: 100%; margin-top: 5px; }
+        }
     </style>
 </head>
 <body>
@@ -53,14 +73,14 @@
         </div>
         <h1>Armador de Horario - Estudiantes</h1>
     </div>
-    <button class="btn-admin" onclick="pedirClaveAdmin()">Panel Administrador 🔒</button>
+    <button class="btn-admin" onclick="pedirClaveAdmin()">Panel Admin 🔒</button>
 </header>
 
 <div class="container">
     <h2>1. Buscar Asignaturas del Programa</h2>
-    <input type="text" id="buscador" placeholder="Escribe materia, código, docente o día (ej. Lunes)..." onkeyup="filtrar()">
+    <input type="text" id="buscador" placeholder="Escribe materia, código, docente o día..." onkeyup="filtrar()">
     
-    <div style="overflow-x: auto;">
+    <div class="table-responsive">
         <div id="tabla-materias"></div>
     </div>
 
@@ -68,7 +88,7 @@
         <h2>2. Mi Horario Semanal Provisional</h2>
         <div id="alerta"></div>
         
-        <div style="overflow-x: auto;">
+        <div class="table-responsive">
             <table class="tabla-horario-grid">
                 <thead>
                     <tr>
@@ -97,12 +117,12 @@
     </div>
 </div>
 
-<!-- MODAL DE ADMINISTRADOR -->
+<!-- MODAL DE ADMINISTRADOR RESPONSIVO -->
 <div id="adminModal" class="modal">
     <div class="modal-content">
         <span class="close" onclick="cerrarModal()">&times;</span>
-        <h2>Gestión de Asignaturas (Admin)</h2>
-        <p style="font-size: 12px; color: #666;">Aquí puedes agregar materias directamente al sistema o gestionar la base de datos.</p>
+        <h2>Gestión de Asignaturas</h2>
+        <p style="font-size: 11px; color: #666;">Agrega materias temporalmente al sistema.</p>
         
         <form id="adminForm" onsubmit="guardarMateriaAdmin(event)">
             <div class="form-group">
@@ -144,7 +164,7 @@
                 <label>Docente:</label>
                 <input type="text" id="adm-docente" required>
             </div>
-            <button type="submit" class="btn-agregar" style="width: 100%; padding: 10px;">Guardar Nueva Materia</button>
+            <button type="submit" class="btn-agregar" style="width: 100%; padding: 12px; font-size: 14px;">Guardar Materia</button>
         </form>
     </div>
 </div>
@@ -153,7 +173,7 @@
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTjA9jPr8jZgFrGoicY7rwUhLAHl-cTdLDsTNI5D02m9P6nPjDVEFnNwCmcWGDG5epd_ejuZFcaB4os/pub?output=csv';
     let datosGlobales = [];
     let horarioProvisional = [];
-    const CLAVE_SECRETA = "adminlchorarios2026"; 
+    const CLAVE_SECRETA = "admin2026";
 
     async function cargarDatos() {
         try {
@@ -167,7 +187,7 @@
             renderizarTabla(datosGlobales);
         } catch (error) {
             console.error("Error al cargar los datos:", error);
-            document.getElementById('tabla-materias').innerHTML = "<p style='color:red;'>Error al cargar los datos del Google Sheets. Verifica que el enlace CSV esté público.</p>";
+            document.getElementById('tabla-materias').innerHTML = "<p style='color:red;'>Error al cargar los datos del Google Sheets.</p>";
         }
     }
 
@@ -275,7 +295,6 @@
         });
     }
 
-    // Funciones del Modal Administrador
     function pedirClaveAdmin() {
         let clave = prompt("Ingresa la contraseña de administrador:");
         if (clave === CLAVE_SECRETA) {
@@ -305,7 +324,7 @@
         datosGlobales.push(nuevaFila);
         renderizarTabla(datosGlobales);
         cerrarModal();
-        alert("¡Materia agregada temporalmente a la tabla! (Recuerda actualizar tu Google Sheets oficial para que guarde los cambios permanentemente).");
+        alert("¡Materia agregada temporalmente a la tabla!");
         document.getElementById('adminForm').reset();
     }
 
