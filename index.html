@@ -238,9 +238,8 @@
     let datosGlobales = [];
     let horarioProvisional = [];
     
-    // Hash SHA-256 precalculado de la contraseña "adminlc2026"
-    // Evita problemas de texto plano o saltos de línea accidentales al comparar.
-    const HASH_ADMIN = "235e16f3164fa9f1207198d5c4103c8c7f96c21e64906ec46726ed18cfdf0f86";
+    // Contraseña en texto plano para garantizar acceso inmediato y evitar problemas de carga con librerías externas de hash
+    const CLAVE_ADMIN = "adminlc2026";
 
     async function cargarDatos() {
         try {
@@ -287,10 +286,7 @@
         const filasFiltradas = datosGlobales.filter((fila, index) => {
             if(index === 0) return true;
             
-            // Asumiendo que el semestre está en la columna índice 8 (o filtrando el texto general si corresponde)
-            // Verificamos si coincide con el semestre seleccionado (si hay selección)
             const cumpleSemestre = !semestreFiltro || (fila[8] && fila[8].trim().toUpperCase() === semestreFiltro.toUpperCase());
-            
             const cumpleBusqueda = fila.some(celda => celda.toLowerCase().includes(busqueda));
 
             return cumpleSemestre && cumpleBusqueda;
@@ -374,9 +370,7 @@
     function pedirClaveAdmin() {
         let clave = prompt("Ingresa la contraseña de administrador:");
         if (clave !== null) {
-            // Generar hash SHA-256 de lo que ingresó el usuario y comparar con el hash guardado
-            let hashIngresado = CryptoJS.SHA256(clave.trim()).toString();
-            if (hashIngresado === HASH_ADMIN) {
+            if (clave.trim() === CLAVE_ADMIN) {
                 document.getElementById('adminModal').style.display = 'flex';
                 cambiarModoAdmin('crear');
                 cargarAdminGestorTabla();
