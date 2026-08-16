@@ -227,8 +227,16 @@
     let datosGlobales = [];
     let horarioProvisional = [];
     
-    // Hash MD5 correspondiente a "adminlc2026"
-    const HASH_ADMIN = "908b88dbb660c1d198bb6242eddf7b8d";
+    // Hash SHA-256 encriptado correspondiente a "adminlc2026"
+    const HASH_ADMIN = "f9872e4eb245f7be81f9a26322cbcc3ae32483561338a0887ee27f4e0c4516ff";
+
+    // Función nativa para encriptar en SHA-256
+    async function hashTexto(texto) {
+        const msgBuffer = new TextEncoder().encode(texto);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
 
     async function cargarDatos() {
         try {
@@ -279,24 +287,44 @@
         renderizarTabla(datosConCabecera);
     }
 
+    // Helper para obtener el índice dinámico según si el CSV incluye columna Semestre o no
+    function obtenerIndices(materia) {
+        // Si el arreglo tiene 9 elementos, el índice 0 es Semestre. Si tiene 8, no hay semestre.
+        const tieneSemestre = materia.length >= 9;
+        const offset = tieneSemestre ? 1 : 0;
+        return {
+            semestre: tieneSemestre ? materia[0] : '',
+            codigo: materia[0 + offset] || '',
+            nombre: materia[1 + offset] || '',
+            grupo: materia[2 + offset] || '',
+            dia: materia[3 + offset] || '',
+            inicio: materia[4 + offset] || '',
+            fin: materia[5 + offset] || '',
+            salon: materia[6 + offset] || '',
+            docente: materia[7 + offset] || ''
+        };
+    }
+
     function agregarAlHorario(indiceFila) {
         const materiaSeleccionada = datosGlobales[indiceFila];
-        const diaNuevo = (materiaSeleccionada[3] || "").trim();
-        const inicioNuevo = (materiaSeleccionada[4] || "").trim();
-        const finNuevo = (materiaSeleccionada[5] || "").trim();
+        const infoNuevo = obtenerIndices(materiaSeleccionada);
 
         document.getElementById('alerta').innerText = "";
 
         for (let item of horarioProvisional) {
-            if (item[3].toLowerCase() === diaNuevo.toLowerCase()) {
-                if (inicioNuevo < item[5] && finNuevo > item[4]) {
-                    document.getElementById('alerta').innerText = `⚠️ ¡Cruce de horario! Se solapa con ${item[1]} (${item[3]} de ${item[4]} a ${item[5]})`;
+            const infoItem = obtenerIndices(item);
+            if (infoItem.dia.toLowerCase() === infoNuevo.dia.toLowerCase()) {
+                if (infoNuevo.inicio < infoItem.fin && infoNuevo.fin > infoItem.inicio) {
+                    document.getElementById('alerta').innerText = `⚠️ ¡Cruce de horario! Se solapa con ${infoItem.nombre} (${infoItem.dia} de ${infoItem.inicio} a ${infoItem.fin})`;
                     return;
                 }
             }
         }
 
-        if (horarioProvisional.some(item => item[0] === materiaSeleccionada[0] && item[2] === materiaSeleccionada[2])) {
+        if (horarioProvisional.some(item => {
+            const info = obtenerIndices(item);
+            return info.codigo === infoNuevo.codigo && info.grupo === infoNuevo.grupo;
+        })) {
             document.getElementById('alerta').innerText = "⚠️ Ya agregaste este grupo de esta asignatura.";
             return;
         }
@@ -306,7 +334,10 @@
     }
 
     function eliminarDelHorario(codigo, grupo) {
-        horarioProvisional = horarioProvisional.filter(item => !(item[0] === codigo && item[2] === grupo));
+        horarioProvisional = horarioProvisional.filter(item => {
+            const info = obtenerIndices(item);
+            return !(info.codigo === codigo && info.grupo === grupo);
+        });
         document.getElementById('alerta').innerText = "";
         actualizarGridHorario();
     }
@@ -322,10 +353,16 @@
         };
 
         Object.values(diasCols).forEach(col => col.innerHTML = '');
-        horarioProvisional.sort((a, b) => a[4].localeCompare(b[4]));
+        
+        horarioProvisional.sort((a, b) => {
+            const infoA = obtenerIndices(a);
+            const infoB = obtenerIndices(b);
+            return infoA.inicio.localeCompare(infoB.inicio);
+        });
 
         horarioProvisional.forEach(materia => {
-            const diaNorm = (materia[3] || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const info = obtenerIndices(materia);
+            const diaNorm = (info.dia || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             let diaKey = '';
             
             if(diaNorm.includes('lunes')) diaKey = 'lunes';
@@ -338,23 +375,23 @@
             if(diaKey && diasCols[diaKey]) {
                 diasCols[diaKey].innerHTML += `
                     <div class="celda-materia">
-                        <strong>${materia[1]}</strong><br>
-                        G: ${materia[2]}<br>
-                        🕒 ${materia[4]} - ${materia[5]}<br>
-                        📍 ${materia[6]}<br>
-                        👨‍🏫 ${materia[7]}<br>
-                        <button class="btn-eliminar" onclick="eliminarDelHorario('${materia[0]}', '${materia[2]}')">Quitar</button>
+                        <strong>${info.nombre}</strong><br>
+                        G: ${info.grupo}<br>
+                        🕒 ${info.inicio} - ${info.fin}<br>
+                        📍 ${info.salon}<br>
+                        👨‍🏫 ${info.docente}<br>
+                        <button class="btn-eliminar" onclick="eliminarDelHorario('${info.codigo}', '${info.grupo}')">Quitar</button>
                     </div>
                 `;
             }
         });
     }
 
-    function pedirClaveAdmin() {
+    async function pedirClaveAdmin() {
         let clave = prompt("Ingresa la contraseña de administrador:");
         if (clave !== null) {
-            // Encripta la entrada recibida en MD5 y la compara con la clave guardada
-            let hashIngresado = CryptoJS.MD5(clave).toString();
+            // Calcula el hash SHA-256 usando la API nativa de JavaScript
+            let hashIngresado = await hashTexto(clave);
             if (hashIngresado === HASH_ADMIN) {
                 document.getElementById('adminModal').style.display = 'flex';
                 cambiarModoAdmin('crear');
@@ -398,10 +435,12 @@
             let textoFila = fila.join(" ").toLowerCase();
             if(filtro && !textoFila.includes(filtro.toLowerCase())) continue;
 
+            let info = obtenerIndices(fila);
+
             html += `<tr>
-                <td>${fila[0]}</td>
-                <td>${fila[1]}</td>
-                <td>${fila[2]}</td>
+                <td>${info.codigo}</td>
+                <td>${info.nombre}</td>
+                <td>${info.grupo}</td>
                 <td>
                     <button class="btn-editar" onclick="cargarMateriaParaEditar(${i})">Editar</button>
                     <button class="btn-eliminar" onclick="eliminarMateriaAdmin(${i})">Eliminar</button>
@@ -419,36 +458,62 @@
 
     function cargarMateriaParaEditar(index) {
         let mat = datosGlobales[index];
+        let info = obtenerIndices(mat);
+
         document.getElementById('adm-index').value = index;
-        document.getElementById('adm-semestre').value = mat[0] || '1'; // Se asigna el semestre al modal
-        document.getElementById('adm-codigo').value = mat[1] || '';
-        document.getElementById('adm-nombre').value = mat[2] || '';
-        document.getElementById('adm-grupo').value = mat[3] || '';
-        document.getElementById('adm-dia').value = mat[4] || 'Lunes';
-        document.getElementById('adm-inicio').value = mat[5] || '';
-        document.getElementById('adm-fin').value = mat[6] || '';
-        document.getElementById('adm-salon').value = mat[7] || '';
-        document.getElementById('adm-docente').value = mat[8] || '';
+        document.getElementById('adm-semestre').value = info.semestre || '1';
+        document.getElementById('adm-codigo').value = info.codigo;
+        document.getElementById('adm-nombre').value = info.nombre;
+        document.getElementById('adm-grupo').value = info.grupo;
+        document.getElementById('adm-dia').value = info.dia || 'Lunes';
+        document.getElementById('adm-inicio').value = info.inicio;
+        document.getElementById('adm-fin').value = info.fin;
+        document.getElementById('adm-salon').value = info.salon;
+        document.getElementById('adm-docente').value = info.docente;
         
-        document.getElementById('admin-form-titulo').innerText = `Editando: ${mat[2]} (G${mat[3]})`;
+        document.getElementById('admin-form-titulo').innerText = `Editando: ${info.nombre} (G${info.grupo})`;
     }
 
     function guardarAsignaturaAdmin(event) {
         event.preventDefault();
         let index = document.getElementById('adm-index').value;
 
-        // Se captura el campo 'adm-semestre' al inicio de la fila
-        const nuevaFila = [
-            document.getElementById('adm-semestre').value,
-            document.getElementById('adm-codigo').value,
-            document.getElementById('adm-nombre').value,
-            document.getElementById('adm-grupo').value,
-            document.getElementById('adm-dia').value,
-            document.getElementById('adm-inicio').value,
-            document.getElementById('adm-fin').value,
-            document.getElementById('adm-salon').value,
-            document.getElementById('adm-docente').value
-        ];
+        // Si la tabla original en Google Sheets incluye Semestre como primera columna
+        const tieneSemestreEnSheet = datosGlobales[0] && datosGlobales[0].length >= 9;
+
+        let nuevaFila = [];
+        
+        if (tieneSemestreEnSheet) {
+            nuevaFila = [
+                document.getElementById('adm-semestre').value,
+                document.getElementById('adm-codigo').value,
+                document.getElementById('adm-nombre').value,
+                document.getElementById('adm-grupo').value,
+                document.getElementById('adm-dia').value,
+                document.getElementById('adm-inicio').value,
+                document.getElementById('adm-fin').value,
+                document.getElementById('adm-salon').value,
+                document.getElementById('adm-docente').value
+            ];
+        } else {
+            // Si la hoja original de Google Sheets solo tiene 8 columnas (sin columna Semestre)
+            nuevaFila = [
+                document.getElementById('adm-codigo').value,
+                document.getElementById('adm-nombre').value,
+                document.getElementById('adm-grupo').value,
+                document.getElementById('adm-dia').value,
+                document.getElementById('adm-inicio').value,
+                document.getElementById('adm-fin').value,
+                document.getElementById('adm-salon').value,
+                document.getElementById('adm-docente').value
+            ];
+            
+            // Además, agregamos la cabecera 'Semestre' si es la primera asignatura creada con 9 columnas
+            if (datosGlobales[0] && datosGlobales[0].length === 8) {
+                datosGlobales[0].unshift("Semestre");
+            }
+            nuevaFila.unshift(document.getElementById('adm-semestre').value);
+        }
 
         if (index === "") {
             datosGlobales.push(nuevaFila);
@@ -468,13 +533,16 @@
     }
 
     function eliminarMateriaAdmin(index) {
-        if(confirm(`¿Estás segura de eliminar la asignatura ${datosGlobales[index][2]} (Grupo ${datosGlobales[index][3]})?`)) {
-            let matEliminada = datosGlobales[index];
+        let info = obtenerIndices(datosGlobales[index]);
+        if(confirm(`¿Estás segura de eliminar la asignatura ${info.nombre} (Grupo ${info.grupo})?`)) {
             datosGlobales.splice(index, 1);
             renderizarTabla(datosGlobales);
             cargarAdminGestorTabla();
             
-            horarioProvisional = horarioProvisional.filter(item => !(item[1] === matEliminada[1] && item[3] === matEliminada[3]));
+            horarioProvisional = horarioProvisional.filter(item => {
+                let itemInfo = obtenerIndices(item);
+                return !(itemInfo.codigo === info.codigo && itemInfo.grupo === info.grupo);
+            });
             actualizarGridHorario();
             
             alert("Asignatura eliminada correctamente.");
@@ -522,13 +590,15 @@
         let diasKeys = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
         diasKeys.forEach((dia, index) => {
             let matDelDia = horarioProvisional.filter(m => {
-                let dNorm = m[4].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                let info = obtenerIndices(m);
+                let dNorm = info.dia.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
                 return dNorm.includes(dia);
             });
 
             let posY = y + 5;
             matDelDia.forEach(m => {
-                let texto = `${m[2]} (G${m[3]})\n${m[5]}-${m[6]}\nSalón: ${m[7]}`;
+                let info = obtenerIndices(m);
+                let texto = `${info.nombre} (G${info.grupo})\n${info.inicio}-${info.fin}\nSalón: ${info.salon}`;
                 doc.setFontSize(7);
                 doc.text(texto, startX + (index * colWidth) + 2, posY, { maxWidth: colWidth - 4 });
                 posY += 12;
@@ -539,7 +609,7 @@
     }
 
     cargarDatos();
-            </script>
+</script>
     
 </body>
 
